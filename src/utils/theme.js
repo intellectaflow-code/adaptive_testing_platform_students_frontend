@@ -1,0 +1,36 @@
+export const getThemeTokens = (theme) =>
+  theme === "dark"
+    ? {
+        "--bg": "#0C0E14",
+        "--surface": "#1d202e",
+        "--surface2": "#181B26",
+        "--border": "#1F2230",
+        "--border2": "#2A2D3E",
+        "--amber": "#F0A500",
+        "--amber2": "#FFD166",
+        "--muted": "#5A5F7A",
+        "--body": "#A8ABBE",
+        "--white": "#EEF0FA",
+        "--red": "#F06060",
+        "--green": "#4ADE80",
+        "--blue": "#60A5FA",
+        "--radius": "10px",
+        "--radius-lg": "14px",
+      }
+    : {
+        "--bg": "#F3F5FB",
+        "--surface": "#FFFFFF",
+        "--surface2": "#EBEFF8",
+        "--border": "#DDE1EE",
+        "--border2": "#C8CCDE",
+        "--amber": "#C8730A",
+        "--amber2": "#F0A500",
+        "--muted": "#8890AB",
+        "--body": "#3C4260",
+        "--white": "#0D1130",
+        "--red": "#D03A3A",
+        "--green": "#15803D",
+        "--blue": "#1D4ED8",
+        "--radius": "10px",
+        "--radius-lg": "14px",
+      };

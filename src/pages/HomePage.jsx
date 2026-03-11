@@ -1,0 +1,167 @@
+import { useState } from "react";
+import Icon from "../components/Icon";
+import Select from "../components/Select";
+import { MOCK_QUESTIONS, LIVE_TESTS, PERF } from "../data/mockData";
+import { card, scoreColor, pill } from "../utils/styles";
+import API from "../api/api";
+
+const SUBJECTS = ["Computer Science", "Mathematics", "Physics", "Chemistry", "Electronics", "Data Science"];
+
+export default function HomePage({ setPage, setQuizConfig }) {
+  const [aiForm, setAiForm] = useState({ subject: "", topic: "", questions: 10, time: 15, difficulty: "medium" });
+  const [errs, setErrs] = useState({});
+
+const startAI = async () => {
+  const e = {};
+
+  if (!aiForm.subject) e.subject = "Required";
+  if (!aiForm.topic.trim()) e.topic = "Required";
+
+  if (Object.keys(e).length) {
+    setErrs(e);
+    return;
+  }
+
+  try {
+
+    const res = await API.post("/ai-quiz/start", {
+      topic: aiForm.topic,
+      difficulty: aiForm.difficulty,
+      total_questions: aiForm.questions
+    });
+
+    const { attempt_id, questions } = res.data;
+
+    setQuizConfig({
+      type: "ai",
+      attempt_id: attempt_id,
+      title: aiForm.topic,
+      subject: aiForm.subject,
+      duration: aiForm.time,
+      questions: questions
+    });
+
+    setPage("quiz");
+
+  } catch (err) {
+    console.error("AI Quiz error:", err);
+    alert("Failed to generate AI quiz");
+  }
+};
+
+  const startTeacher = (t) => {
+    setQuizConfig({ type: "teacher", title: t.title, subject: t.subject, questions: MOCK_QUESTIONS, duration: t.duration });
+    setPage("quiz");
+  };
+
+  return (
+    <div style={{ padding: "24px 28px", maxWidth: 1060, margin: "0 auto" }}>
+      <div style={{ marginBottom: 22 }}>
+        <h1 style={{ fontSize: 18, fontWeight: 700, color: "var(--white)", marginBottom: 3 }}>Tests</h1>
+        <p style={{ color: "var(--muted)", fontSize: 13 }}>Take an AI-generated test or join a live teacher test</p>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
+        {/* AI Test Card */}
+        <div style={card({ padding: 22 })}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+            <div style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(240,165,0,0.1)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--amber)", flexShrink: 0 }}>
+              <Icon n="brain" s={15} />
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--white)" }}>AI Adaptive Test</div>
+              <div style={{ fontSize: 11, color: "var(--muted)" }}>Personalised question set</div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 5 }}>Subject</label>
+              <Select value={aiForm.subject} onChange={(v) => { setAiForm({ ...aiForm, subject: v }); setErrs({}); }} options={SUBJECTS} placeholder="Select subject" />
+              {errs.subject && <span style={{ fontSize: 11, color: "var(--red)", marginTop: 3, display: "block" }}>{errs.subject}</span>}
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 5 }}>Topic</label>
+              <input
+                value={aiForm.topic}
+                onChange={(e) => { setAiForm({ ...aiForm, topic: e.target.value }); setErrs({}); }}
+                placeholder="e.g. Binary Search Trees"
+                style={{ width: "100%", padding: "9px 12px", background: "var(--bg)", border: `1px solid ${errs.topic ? "var(--red)" : "var(--border2)"}`, borderRadius: "var(--radius)", color: "var(--white)", fontSize: 13, outline: "none", boxSizing: "border-box" }}
+              />
+              {errs.topic && <span style={{ fontSize: 11, color: "var(--red)", marginTop: 3, display: "block" }}>{errs.topic}</span>}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 5 }}>Questions</label>
+                <Select value={String(aiForm.questions)} onChange={(v) => setAiForm({ ...aiForm, questions: +v })} options={[5, 10, 15, 20, 25, 30].map((n) => ({ value: String(n), label: `${n} ` }))} />
+              </div>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 5 }}>Time Limit</label>
+                <Select value={String(aiForm.time)} onChange={(v) => setAiForm({ ...aiForm, time: +v })} options={[5, 10, 15, 20, 30, 45, 60].map((n) => ({ value: String(n), label: `${n} min` }))} />
+              </div>
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 7 }}>Difficulty</label>
+              <div style={{ display: "flex", gap: 7 }}>
+                {[["easy", "var(--green)"], ["medium", "var(--amber)"], ["hard", "var(--red)"]].map(([d, c]) => (
+                  <button key={d} onClick={() => setAiForm({ ...aiForm, difficulty: d })}
+                    style={{ flex: 1, padding: "7px 0", borderRadius: "var(--radius)", cursor: "pointer", border: `1px solid ${aiForm.difficulty === d ? c : "var(--border2)"}`, background: aiForm.difficulty === d ? `rgba(${d === "easy" ? "74,222,128" : d === "medium" ? "240,165,0" : "240,96,96"},0.08)` : "var(--bg)", color: aiForm.difficulty === d ? c : "var(--muted)", fontSize: 12, fontWeight: aiForm.difficulty === d ? 600 : 400, textTransform: "capitalize", transition: "all .15s" }}>
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button onClick={startAI}
+              style={{ width: "100%", padding: "10px", background: "var(--amber)", border: "none", borderRadius: "var(--radius)", color: "#0C0E14", fontSize: 13, fontWeight: 700, cursor: "pointer", marginTop: 2 }}
+              onMouseEnter={(e) => (e.currentTarget.style.opacity = ".85")}
+              onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}>
+              Start AI Test
+            </button>
+          </div>
+        </div>
+
+        {/* Teacher Tests */}
+        <div style={card({ padding: 22 })}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+            <div style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(96,165,250,0.1)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--blue)", flexShrink: 0 }}>
+              <Icon n="book" s={15} />
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--white)" }}>Teacher Tests</div>
+              <div style={{ fontSize: 11, color: "var(--muted)" }}>Live &amp; upcoming scheduled tests</div>
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+            {LIVE_TESTS.map((t) => (
+              <div key={t.id} style={{ background: "var(--bg)", border: "1px solid var(--border2)", borderRadius: "var(--radius)", padding: "13px 15px" }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 7 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 2, lineHeight: 1.4 }}>{t.title}</div>
+                    <div style={{ fontSize: 11, color: "var(--muted)" }}>{t.teacher}</div>
+                  </div>
+                  <span style={t.status === "live" ? pill("var(--green)", "rgba(74,222,128,0.1)") : pill("var(--amber)", "rgba(240,165,0,0.1)")}>
+                    {t.status === "live" ? "● Live" : "Upcoming"}
+                  </span>
+                </div>
+                <div style={{ display: "flex", gap: 12, fontSize: 11, color: "var(--muted)", marginBottom: t.status === "live" ? 9 : 0 }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 3 }}><Icon n="clock" s={11} />{t.duration} min</span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 3 }}><Icon n="book" s={11} />{t.questions} Qs</span>
+                </div>
+                {t.status === "live" && (
+                  <button onClick={() => startTeacher(t)}
+                    style={{ width: "100%", padding: "7px", background: "none", border: "1px solid var(--border2)", borderRadius: "var(--radius)", color: "var(--body)", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, transition: "border-color .15s,color .15s" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--amber)"; e.currentTarget.style.color = "var(--amber)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border2)"; e.currentTarget.style.color = "var(--body)"; }}>
+                    ▶ Start Test
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+
+    </div>
+  );
+}
