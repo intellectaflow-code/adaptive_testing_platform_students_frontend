@@ -1,15 +1,48 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Icon from "../components/Icon";
 import Select from "../components/Select";
 import { MOCK_QUESTIONS, LIVE_TESTS, PERF } from "../data/mockData";
 import { card, scoreColor, pill } from "../utils/styles";
 import API from "../api/api";
+import Loader from "../components/Loader";
 
 const SUBJECTS = ["Computer Science", "Mathematics", "Physics", "Chemistry", "Electronics", "Data Science"];
 
 export default function HomePage({ setPage, setQuizConfig }) {
   const [aiForm, setAiForm] = useState({ subject: "", topic: "", questions: 10, time: 15, difficulty: "medium" });
   const [errs, setErrs] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState(null);
+  const [teacherTests, setTeacherTests] = useState([]);
+  const [testsLoading, setTestsLoading] = useState(true);
+
+useEffect(() => {
+
+  const fetchUser = async () => {
+    try {
+      const res = await API.get("/profiles/me");
+      setUser(res.data);
+    } catch (err) {
+      console.error("User fetch failed", err);
+    }
+  };
+
+  const fetchQuizzes = async () => {
+    try {
+      const res = await API.get("/quizzes?published_only=true");
+      console.log("QUIZZES:", res.data);
+      setTeacherTests(res.data);
+    } catch (err) {
+      console.error("Quiz fetch failed", err);
+    } finally {
+      setTestsLoading(false);
+    }
+  };
+
+  fetchUser();
+  fetchQuizzes();
+
+}, []);
 
 const startAI = async () => {
   const e = {};
@@ -23,6 +56,7 @@ const startAI = async () => {
   }
 
   try {
+    setLoading(true);
 
     const res = await API.post("/ai-quiz/start", {
       topic: aiForm.topic,
@@ -46,15 +80,24 @@ const startAI = async () => {
   } catch (err) {
     console.error("AI Quiz error:", err);
     alert("Failed to generate AI quiz");
+    setLoading(false);
   }
 };
 
   const startTeacher = (t) => {
-    setQuizConfig({ type: "teacher", title: t.title, subject: t.subject, questions: MOCK_QUESTIONS, duration: t.duration });
+    setQuizConfig({
+      type: "teacher",
+      quiz_id: t.id,
+      title: t.title,
+      duration: t.duration_minutes
+    });
+
     setPage("quiz");
   };
-
+  console.log("Teacher tests state:", teacherTests);
   return (
+      <>
+    {loading && <Loader />}
     <div style={{ padding: "24px 28px", maxWidth: 1060, margin: "0 auto" }}>
       <div style={{ marginBottom: 22 }}>
         <h1 style={{ fontSize: 18, fontWeight: 700, color: "var(--white)", marginBottom: 3 }}>Tests</h1>
@@ -132,36 +175,61 @@ const startAI = async () => {
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-            {LIVE_TESTS.map((t) => (
+          {teacherTests.map((t) => {
+
+            const now = new Date();
+            const start = t.start_time ? new Date(t.start_time) : null;
+            const end = t.end_time ? new Date(t.end_time) : null;
+
+            const status =
+              now >= start && now <= end ? "live" :
+              now < start ? "upcoming" : "ended";
+
+            return (
               <div key={t.id} style={{ background: "var(--bg)", border: "1px solid var(--border2)", borderRadius: "var(--radius)", padding: "13px 15px" }}>
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 7 }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 2, lineHeight: 1.4 }}>{t.title}</div>
-                    <div style={{ fontSize: 11, color: "var(--muted)" }}>{t.teacher}</div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 7 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)" }}>
+                      {t.title}
+                    </div>
                   </div>
-                  <span style={t.status === "live" ? pill("var(--green)", "rgba(74,222,128,0.1)") : pill("var(--amber)", "rgba(240,165,0,0.1)")}>
-                    {t.status === "live" ? "● Live" : "Upcoming"}
+
+                  <span style={status === "live" ? pill("var(--green)", "rgba(74,222,128,0.1)") : pill("var(--amber)", "rgba(240,165,0,0.1)")}>
+                    {status === "live" ? "● Live" : "Upcoming"}
                   </span>
+
                 </div>
-                <div style={{ display: "flex", gap: 12, fontSize: 11, color: "var(--muted)", marginBottom: t.status === "live" ? 9 : 0 }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: 3 }}><Icon n="clock" s={11} />{t.duration} min</span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 3 }}><Icon n="book" s={11} />{t.questions} Qs</span>
+
+                <div style={{ display: "flex", gap: 12, fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>
+                  <span><Icon n="clock" s={11} /> {t.duration_minutes} min</span>
+                  <span><Icon n="book" s={11} /> {t.question_count} Qs</span>
                 </div>
-                {t.status === "live" && (
-                  <button onClick={() => startTeacher(t)}
-                    style={{ width: "100%", padding: "7px", background: "none", border: "1px solid var(--border2)", borderRadius: "var(--radius)", color: "var(--body)", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, transition: "border-color .15s,color .15s" }}
-                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--amber)"; e.currentTarget.style.color = "var(--amber)"; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border2)"; e.currentTarget.style.color = "var(--body)"; }}>
+
+                {status === "live" && (
+                  <button
+                    onClick={() => startTeacher(t)}
+                    style={{
+                      width: "100%",
+                      padding: "7px",
+                      border: "1px solid var(--border2)",
+                      borderRadius: "var(--radius)",
+                      background: "none",
+                      cursor: "pointer"
+                    }}
+                  >
                     ▶ Start Test
                   </button>
                 )}
               </div>
-            ))}
+            );
+          })}
           </div>
         </div>
       </div>
 
 
     </div>
+    </>
   );
 }

@@ -6,6 +6,7 @@ import RadialChart from "../components/RadialChart";
 import CalDrop from "../components/CalDrop";
 import { PERF, MOCK_QUESTIONS } from "../data/mockData";
 import { card, scoreColor, pill } from "../utils/styles";
+import Loader from "../components/Loader";
 
 export default function DashboardPage({ setPage, setAttemptResult }) {
   const [filter, setFilter] = useState("overall");

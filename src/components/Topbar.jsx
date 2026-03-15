@@ -9,7 +9,7 @@ const PAGE_TITLES = {
   editprofile: "Edit Profile",
 };
 
-export default function Topbar({ page, theme, setTheme }) {
+export default function Topbar({ page, theme, setTheme, setPage }) {
   return (
     <div
       style={{
@@ -38,15 +38,46 @@ export default function Topbar({ page, theme, setTheme }) {
       </span>
 
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        {/* Bell */}
-        <button
-          style={{ width: 32, height: 32, borderRadius: 8, background: "var(--surface)", border: "1px solid var(--border)", cursor: "pointer", color: "var(--muted)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", transition: "border-color .15s,color .15s" }}
-          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--amber)"; e.currentTarget.style.color = "var(--amber)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--muted)"; }}
-        >
-          <Icon n="bell" s={15} />
-          <span style={{ position: "absolute", top: 6, right: 6, width: 5, height: 5, borderRadius: "50%", background: "var(--amber)", border: "1.5px solid var(--surface)" }} />
-        </button>
+      {/* Bell */}
+      <button
+        onClick={() => setPage("announcements")}
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: 8,
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+          cursor: "pointer",
+          color: "var(--muted)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          position: "relative",
+          transition: "border-color .15s,color .15s"
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = "var(--amber)";
+          e.currentTarget.style.color = "var(--amber)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.borderColor = "var(--border)";
+          e.currentTarget.style.color = "var(--muted)";
+        }}
+      >
+        <Icon n="bell" s={15} />
+        <span
+          style={{
+            position: "absolute",
+            top: 6,
+            right: 6,
+            width: 5,
+            height: 5,
+            borderRadius: "50%",
+            background: "var(--amber)",
+            border: "1.5px solid var(--surface)"
+          }}
+        />
+      </button>
 
         {/* Theme toggle */}
         <button

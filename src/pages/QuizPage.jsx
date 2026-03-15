@@ -3,6 +3,7 @@ import Icon from "../components/Icon";
 import { MOCK_QUESTIONS } from "../data/mockData";
 import { card } from "../utils/styles";
 import API from "../api/api";
+import Loader from "../components/Loader";
 
 function ConfirmModal({ show, title, body, onCancel, onConfirm, cancelTxt, confirmTxt, danger }) {
   if (!show) return null;
@@ -30,6 +31,7 @@ export default function QuizPage({ config, setPage, setResults }) {
   const [tabs, setTabs] = useState(0);
   const [quitM, setQuitM] = useState(false);
   const [subM, setSubM] = useState(false);
+  const [loading, setLoading] = useState(false);
   const timer = useRef();
 
   useEffect(() => {
@@ -49,6 +51,7 @@ export default function QuizPage({ config, setPage, setResults }) {
   }, []);
 
 const doSubmit = useCallback(async () => {
+  setLoading(true);
   clearInterval(timer.current);
 
   const spent = (config.time || config.duration || 15) * 60 - tLeft;
@@ -88,11 +91,13 @@ console.log("Submitting:", {
     });
 
     if (document.fullscreenElement) document.exitFullscreen?.();
+    setLoading(false);
 
     setPage("results");
 
   } catch (err) {
     console.error("Quiz submit error:", err);
+    setLoading(false);
   }
 
 }, [ans, qs, tLeft, tabs, config]);
@@ -118,6 +123,7 @@ console.log("Submitting:", {
   );
 
   return (
+    <>{loading && <Loader />}
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--bg)" }}>
       {/* Header */}
       <div style={{ padding: "11px 22px", background: "var(--surface)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
@@ -206,6 +212,6 @@ console.log("Submitting:", {
 
       <ConfirmModal show={quitM} title="Quit test?" body="Your progress will be lost." onCancel={() => setQuitM(false)} onConfirm={() => { if (document.fullscreenElement) document.exitFullscreen(); setPage("home"); }} cancelTxt="Cancel" confirmTxt="Quit" danger />
       <ConfirmModal show={subM} title="Submit test?" body={`${answered}/${qs.length} answered · ${Object.keys(mrk).length} marked`} onCancel={() => setSubM(false)} onConfirm={doSubmit} cancelTxt="Review" confirmTxt="Submit" />
-    </div>
+    </div></>
   );
 }

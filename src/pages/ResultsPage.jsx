@@ -1,10 +1,14 @@
 import Icon from "../components/Icon";
 import { card, scoreColor } from "../utils/styles";
-import API from "../api/api";
+import Loader from "../components/Loader";
 
 export default function ResultsPage({ results, setPage, fromDashboard }) {
+    if (!results) {
+  return <Loader />;
+}
   const { questions, correct, total, score, timeSpent, tabs, config } = results;
   const mins = Math.floor(timeSpent / 60), secs = timeSpent % 60;
+
 
   return (
     <div style={{ padding: "24px 28px", maxWidth: 800, margin: "0 auto" }}>
@@ -42,30 +46,42 @@ export default function ResultsPage({ results, setPage, fromDashboard }) {
       <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 11 }}>Question Review</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
       {questions.map((q, qi) => {
-        const ua = q.selected_answer;
-        const isC = q.is_correct;
+      const ua = q.selected_answer
+        ? q.options.findIndex(o => o === q.selected_answer)
+        : null;
         const na = ua === null || ua === undefined;
+        const isC = !na && q.is_correct;
         return (
           <div
             key={qi}
             style={{
               ...card({ padding: 16 }),
-              borderLeft: `3px solid ${
-                isC ? "var(--green)" : na ? "var(--border2)" : "var(--red)"
-              }`
+            borderLeft: `3px solid ${
+              na ? "var(--amber)" : isC ? "var(--green)" : "var(--red)"
+            }`
             }}
           >
               <div style={{ display: "flex", alignItems: "flex-start", gap: 9, marginBottom: 11 }}>
                 <span style={{ width: 21, height: 21, borderRadius: 5, flexShrink: 0, background: isC ? "rgba(74,222,128,0.1)" : na ? "var(--bg)" : "rgba(240,96,96,0.1)", border: `1px solid ${isC ? "var(--green)" : na ? "var(--border2)" : "var(--red)"}`, display: "flex", alignItems: "center", justifyContent: "center", color: isC ? "var(--green)" : na ? "var(--muted)" : "var(--red)", fontSize: 11, fontWeight: 700 }}>
-                  {isC ? <Icon n="check" s={11} /> : na ? "–" : <Icon n="x" s={11} />}
+                  {isC ? <Icon n="check" s={11} /> : na ? "?" : <Icon n="x" s={11} />}
                 </span>
                 <p style={{ fontSize: 14, color: "var(--white)", margin: 0, lineHeight: 1.6 }}>
                   <span style={{ color: "var(--muted)", marginRight: 5 }}>Q{qi + 1}.</span>{q.question_text}
-                </p>
+                </p>{na && (
+                      <span style={{ color: "var(--amber)", fontSize: 11 }}>
+                        Not Attempted
+                      </span>
+                    )}
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-              {q.options.map((opt, oi) => {
-                const isCO = oi === q.correct_answer, isW = oi === ua && !isC;
+              {q.options.filter(o => !/^[A-H]$/.test(o)).map((opt, oi) => {
+                const correctIndex =
+                  typeof q.correct_answer === "number"
+                    ? q.correct_answer
+                    : q.correct_answer.charCodeAt(0) - 65;
+
+                  const isCO = oi === correctIndex;        // correct option always green
+                  const isW = ua !== null && oi === ua && oi !== correctIndex;  // wrong only if answered
 
                 return (
                   <div key={oi} style={{
@@ -98,7 +114,7 @@ export default function ResultsPage({ results, setPage, fromDashboard }) {
                       color: isCO ? "var(--green)" : isW ? "var(--red)" : "var(--body)",
                       fontWeight: isCO || isW ? 600 : 400
                     }}>
-                      {opt}
+                      {opt.replace(/^[A-D]\)\s*|^[A-D]\.\s*|^[A-D]\s+/, "")}
                     </span>
                   </div>
                 );

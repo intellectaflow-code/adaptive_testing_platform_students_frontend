@@ -1,5 +1,6 @@
 import Icon from "../components/Icon";
 import { card, initials } from "../utils/styles";
+import Loader from "../components/Loader";
 
 const BADGES = [
   { e: "⚡", label: "Speed Demon",  desc: "5 tests under 10 min",  earned: true  },

@@ -3,6 +3,7 @@ import Icon from "../components/Icon";
 import Select from "../components/Select";
 import { card } from "../utils/styles";
 import API from "../api/api";
+import Loader from "../components/Loader";
 
 const BRANCHES = [
   "Computer Science",
@@ -57,6 +58,8 @@ export default function SignupPage({ setAuthPage, onLogin }) {
 
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPw, setShowPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
 
   const submit = async () => {
     if (!form.name || !form.usn || !form.email || !form.branch || !form.semester || !form.password) {
@@ -84,15 +87,31 @@ export default function SignupPage({ setAuthPage, onLogin }) {
         full_name: form.name,
         role: "student",
         branch: form.branch,
+        usn: form.usn,
+        semester: form.semester,
+        section: form.section
       });
 
       const data = res.data;
 
+      // 1. Store tokens as you already were
       localStorage.setItem("access_token", data.access_token);
       localStorage.setItem("refresh_token", data.refresh_token);
       localStorage.setItem("user_id", data.user_id);
 
-      onLogin();
+      // 2. Create the user object to send back to App.jsx
+      // This MUST match the keys the Sidebar expects (full_name and usn)
+      const registeredUser = {
+        full_name: form.name,
+        usn: form.usn,
+        email: form.email,
+        branch: form.branch,
+        semester: form.semester
+      };
+
+      // 3. Pass this object to onLogin
+      onLogin(registeredUser); 
+
     } catch (error) {
       setErr(error.response?.data?.detail || "Registration failed");
     }
@@ -102,7 +121,7 @@ export default function SignupPage({ setAuthPage, onLogin }) {
 
   const inputStyle = {
     width: "100%",
-    padding: "9px 12px",
+    padding: "9px 38px 9px 12px",
     background: "var(--bg)",
     border: "1px solid var(--border2)",
     borderRadius: "var(--radius)",
@@ -222,8 +241,85 @@ export default function SignupPage({ setAuthPage, onLogin }) {
             </div>
 
             <Field label="Section" k="section" ph="A" req={false} form={form} setForm={setForm} inputStyle={inputStyle} />
-            <Field label="Password" k="password" type="password" ph="Min 8 characters" form={form} setForm={setForm} inputStyle={inputStyle} />
-            <Field label="Confirm Password" k="confirm" type="password" ph="Repeat password" form={form} setForm={setForm} inputStyle={inputStyle} />
+<div>
+  <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 5 }}>
+    Password <span style={{ color: "var(--red)" }}>*</span>
+  </label>
+
+  <div style={{ position: "relative" }}>
+    <input
+      type={showPw ? "text" : "password"}
+      value={form.password}
+      onChange={(e) =>
+        setForm((prev) => ({
+          ...prev,
+          password: e.target.value,
+        }))
+      }
+      placeholder="Min 8 characters"
+      style={inputStyle}
+    />
+
+    <span
+      onClick={() => setShowPw(!showPw)}
+      style={{
+          position: "absolute",
+          right: 12,
+          top: "50%",
+          transform: "translateY(-50%)",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 22,
+          height: 22,
+          color: "var(--muted)",
+      }}
+    >
+      <Icon n={showPw ? "eyeOff" : "eye"} s={16} />
+    </span>
+  </div>
+</div>
+
+<div>
+  <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 5 }}>
+    Confirm Password <span style={{ color: "var(--red)" }}>*</span>
+  </label>
+
+  <div style={{ position: "relative" }}>
+    <input
+      type={showConfirmPw ? "text" : "password"}
+      value={form.confirm}
+      onChange={(e) =>
+        setForm((prev) => ({
+          ...prev,
+          confirm: e.target.value,
+        }))
+      }
+      placeholder="Repeat password"
+      style={inputStyle}
+    />
+
+    <span
+      onClick={() => setShowConfirmPw(!showConfirmPw)}
+      style={{
+          position: "absolute",
+          right: 12,
+          top: "50%",
+          transform: "translateY(-50%)",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 22,
+          height: 22,
+          color: "var(--muted)",
+      }}
+    >
+      <Icon n={showConfirmPw ? "eyeOff" : "eye"} s={16} />
+    </span>
+  </div>
+</div>
           </div>
 
           <button

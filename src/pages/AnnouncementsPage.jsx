@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Icon from "../components/Icon";
-import { ANNOUNCEMENTS_DATA } from "../data/mockData";
 import { card, pill } from "../utils/styles";
+import API from "../api/api";
+import Loader from "../components/Loader";
 
 const prCol = (p) => p === "high" ? "var(--red)" : p === "medium" ? "var(--amber)" : "var(--muted)";
 const prBg  = (p) => p === "high" ? "rgba(240,96,96,0.08)" : p === "medium" ? "rgba(240,165,0,0.08)" : "rgba(90,95,122,0.1)";
@@ -9,11 +10,26 @@ const prBg  = (p) => p === "high" ? "rgba(240,96,96,0.08)" : p === "medium" ? "r
 export default function AnnouncementsPage() {
   const [open, setOpen] = useState(null);
   const [filter, setFilter] = useState("all");
+  const [announcements, setAnnouncements] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const filtered = ANNOUNCEMENTS_DATA.filter(
-    (a) => filter === "all" || (filter === "new" && a.isNew) || (filter === "high" && a.priority === "high")
-  );
+const filtered = announcements;
 
+  useEffect(() => {
+  const fetchAnnouncements = async () => {
+    try {
+      const res = await API.get("/announcements");
+      setAnnouncements(res.data);
+    } catch (err) {
+      console.error("Failed to fetch announcements", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchAnnouncements();
+}, []);
+if (loading) return <Loader />;
   return (
     <div style={{ padding: "24px 28px", maxWidth: 800, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22, flexWrap: "wrap", gap: 10 }}>
@@ -46,10 +62,13 @@ export default function AnnouncementsPage() {
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 14, fontWeight: 600, color: "var(--white)" }}>{a.title}</span>
                   {a.isNew && <span style={pill("var(--amber)", "rgba(240,165,0,0.12)")}>New</span>}
-                  <span style={pill(prCol(a.priority), prBg(a.priority))}>{a.priority}</span>
                 </div>
-                <div style={{ fontSize: 12, color: "var(--muted)", display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  <span>{a.course}</span><span>·</span><span>{a.teacher}</span><span>·</span><span>{a.date}</span>
+                <div style={{ fontSize: 12, color: "var(--muted)", display: "flex", gap: 6 }}>
+                  <span>{a.course_name || "General"}</span>
+                  <span>•</span>
+                  <span>{a.teacher_name}</span>
+                  <span>•</span>
+                  <span>{new Date(a.created_at).toLocaleDateString()}</span>
                 </div>
                 {open !== a.id && (
                   <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.message}</p>

@@ -2,12 +2,20 @@ import { useState } from "react";
 import Icon from "../components/Icon";
 import { card } from "../utils/styles";
 import API from "../api/api";
+import Loader from "../components/Loader";
 
 export default function LoginPage({ setAuthPage, onLogin }) {
   const [form, setForm] = useState({ email: "", password: "" });
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(!!localStorage.getItem("access_token"));
 
+  const [student, setStudent] = useState(() => {
+      const saved = localStorage.getItem("user_data");
+      return saved ? JSON.parse(saved) : null; 
+    });
+
+// Inside LoginPage.jsx
 const submit = async () => {
   if (!form.email || !form.password) {
     setErr("Please fill all fields");
@@ -25,12 +33,20 @@ const submit = async () => {
 
     const data = res.data;
 
-    // store tokens
+    // 1. Store tokens
     localStorage.setItem("access_token", data.access_token);
     localStorage.setItem("refresh_token", data.refresh_token);
     localStorage.setItem("user_id", data.user_id);
+    localStorage.setItem("user_data", JSON.stringify(data.user || data));
 
-    onLogin();
+    // 2. PASS THE USER DATA HERE
+    // Ensure these keys (full_name, usn) match what your Sidebar uses
+    onLogin({
+        full_name: data.full_name || data.user?.full_name || "Student", 
+        usn: data.usn || data.user?.usn || "N/A",
+        email: form.email,
+        branch: data.branch || "N/A",
+      });
 
   } catch (error) {
     setErr(

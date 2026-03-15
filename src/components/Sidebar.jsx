@@ -12,6 +12,7 @@ const NAV_ITEMS = [
 
 export default function Sidebar({ page, setPage, student, onLogout }) {
   const [col, setCol] = useState(false);
+  console.log("Current Student in Sidebar:", student);
 
   return (
     <aside
@@ -82,21 +83,23 @@ export default function Sidebar({ page, setPage, student, onLogout }) {
         })}
       </nav>
 
-      {/* User info + Logout */}
-      <div style={{ borderTop: "1px solid var(--border)", padding: "10px 8px" }}>
-        {!col && (
-          <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 10px", marginBottom: 4, background: "var(--surface2)", borderRadius: "var(--radius)", border: "1px solid var(--border)" }}>
-            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--amber)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#0C0E14", flexShrink: 0 }}>
-              {initials(student.full_name)}
-            </div>
-            <div style={{ overflow: "hidden" }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--white)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {student.full_name}
-              </div>
-              <div style={{ fontSize: 10, color: "var(--muted)" }}>{student.usn}</div>
-            </div>
-          </div>
-        )}
+{/* User info + Logout */}
+<div style={{ borderTop: "1px solid var(--border)", padding: "10px 8px" }}>
+  {!col && student && ( // This check ensures the box only shows if a user exists
+    <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 10px", marginBottom: 4, background: "var(--surface2)", borderRadius: "var(--radius)", border: "1px solid var(--border)" }}>
+      <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--amber)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#0C0E14", flexShrink: 0 }}>
+        {/* Safe check: initials will only run if student.full_name exists */}
+        {initials(student?.full_name || "")}
+      </div>
+      <div style={{ overflow: "hidden" }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--white)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {student?.full_name} 
+        </div>
+        <div style={{ fontSize: 10, color: "var(--muted)" }}>{student?.usn}</div>
+      </div>
+    </div>
+  )}
+  {/* Logout button... */}
         <button
           onClick={onLogout}
           title={col ? "Log Out" : ""}

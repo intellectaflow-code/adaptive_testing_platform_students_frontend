@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Icon from "../components/Icon";
 import { card } from "../utils/styles";
+import Loader from "../components/Loader";
 
 function Toggle({ v, onChange }) {
   return (
