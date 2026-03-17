@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Icon from "../components/Icon";
-import { MOCK_QUESTIONS } from "../data/mockData";
 import { card } from "../utils/styles";
 import API from "../api/api";
 import Loader from "../components/Loader";
@@ -22,7 +21,7 @@ function ConfirmModal({ show, title, body, onCancel, onConfirm, cancelTxt, confi
 }
 
 export default function QuizPage({ config, setPage, setResults }) {
-  const qs = config.questions || MOCK_QUESTIONS;
+  const [qs, setQs] = useState([]); // Initialize as empty array
   const [cur, setCur] = useState(0);
   const [ans, setAns] = useState({});
   const [mrk, setMrk] = useState({});
@@ -31,8 +30,37 @@ export default function QuizPage({ config, setPage, setResults }) {
   const [tabs, setTabs] = useState(0);
   const [quitM, setQuitM] = useState(false);
   const [subM, setSubM] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start as true to trigger loader
   const timer = useRef();
+
+  useEffect(() => {
+    const loadQuizData = async () => {
+      try {
+        setLoading(true);
+        let questionsData = [];
+
+        if (config.type === "teacher") {
+          const res = await API.get(`/quizzes/${config.quiz_id}/questions`);
+          questionsData = res.data.map(q => ({
+            question_id: q.id,
+            question_text: q.question_text,
+            options: q.options // Contains [{id, option_text}, ...]
+          }));
+        } else {
+          // For AI quizzes, questions are passed via config.questions
+          questionsData = config.questions || [];
+        }
+
+        setQs(questionsData);
+      } catch (err) {
+        console.error("Failed to load quiz", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadQuizData();
+  }, [config]);
 
   useEffect(() => {
     const fn = () => { if (document.hidden) setTabs((t) => t + 1); };
@@ -50,63 +78,81 @@ export default function QuizPage({ config, setPage, setResults }) {
     return () => clearInterval(timer.current);
   }, []);
 
-const doSubmit = useCallback(async () => {
+  const doSubmit = useCallback(async () => {
   setLoading(true);
   clearInterval(timer.current);
 
-  const spent = (config.time || config.duration || 15) * 60 - tLeft;
-  // convert answers to backend format (skip unanswered questions)
-const answers = qs.map((q, i) => ({
-  question_id: q.question_id,
-  selected_answer: ans[i] !== undefined ? q.options[ans[i]] : null
-}));
+  // Calculate total seconds spent on the quiz
+  const totalDuration = (config.time || config.duration || 15) * 60;
+  const spent = totalDuration - tLeft;
+  
+  // 1. Map the answers to the backend format: { question_id, selected_answer (ID) }
+  const formattedAnswers = qs.map((q, i) => {
+    const selectedIdx = ans[i];
+    return {
+      question_id: q.question_id,
+      // We look up the actual database ID of the chosen option
+      selected_answer: selectedIdx !== undefined ? q.options[selectedIdx].id : null
+    };
+  });
 
-console.log("Submitting:", {
-  attempt_id: config.attempt_id,
-  answers
-});
+  // 2. Prepare the payload matching your FastAPI "QuizSubmission" model
+  const payload = {
+    answers: formattedAnswers,
+    tab_switches: tabs, // Tracking proctoring violations
+    time_spent: spent
+  };
 
   try {
-    // 1️⃣ submit quiz
-    await API.post("/ai-quiz/submit", {
-      attempt_id: config.attempt_id,
-      answers
-    });
+    // 3. Determine endpoint (AI vs Teacher quiz)
+    const endpoint = config.type === "ai" 
+      ? "/ai-quiz/submit" 
+      : `/quizzes/${config.quiz_id}/submit`;
+    
+    // 4. Submit to backend
+    const res = await API.post(endpoint, payload);
+    const submissionData = res.data;
 
-    // 2️⃣ fetch answers + explanations
-    const res = await API.get(`/ai-quiz/${config.attempt_id}/answers`);
-    const data = res.data;
+    // 5. Post-submission data retrieval (Review mode)
+    let finalQuestions = [];
 
-    const correct = data.filter(q => q.is_correct).length;
+    if (config.type === "ai") {
+      const aiRes = await API.get(`/ai-quiz/${config.attempt_id}/answers`);
+      finalQuestions = aiRes.data;
+    } else {
+      const attemptId = submissionData.attempt_id;
 
-    // 3️⃣ send results to ResultsPage
+      const res = await API.get(`/attempts/${attemptId}/answers`);
+      finalQuestions = res.data;
+    }
+
+    // 6. Set results for the ResultsPage
     setResults({
-      questions: data,
-      correct,
-      total: data.length,
-      score: Math.round((correct / data.length) * 100),
+      questions: finalQuestions,
+      correct: submissionData.score, // Verified score from FastAPI logic
+      total: qs.length,
+      score: Math.round((submissionData.score / (submissionData.total_possible || qs.length)) * 100),
       timeSpent: spent,
-      tabs,
-      config
+      tabs: tabs,
+      config: config
     });
 
-    if (document.fullscreenElement) document.exitFullscreen?.();
+    // Clean up fullscreen proctoring
+    if (document.fullscreenElement) {
+      document.exitFullscreen?.().catch(() => {});
+    }
+    
     setLoading(false);
-
     setPage("results");
 
   } catch (err) {
     console.error("Quiz submit error:", err);
+    alert(err.response?.data?.detail || "Submission failed. Please try again.");
     setLoading(false);
   }
+}, [ans, qs, tLeft, tabs, config, setPage, setResults]);
 
-}, [ans, qs, tLeft, tabs, config]);
-
-  const q = qs[cur];
-  const m = Math.floor(tLeft / 60), s = tLeft % 60;
-  const timerCol = tLeft < 60 ? "var(--red)" : tLeft < 180 ? "var(--amber)" : "var(--green)";
-  const answered = Object.keys(ans).length;
-
+  // FULLSCREEN GUARD
   if (!fs) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
       <div style={card({ padding: 34, maxWidth: 380, width: "90%", textAlign: "center" })}>
@@ -116,20 +162,26 @@ console.log("Submitting:", {
         <div style={{ fontSize: 15, fontWeight: 700, color: "var(--white)", marginBottom: 8 }}>Fullscreen Required</div>
         <p style={{ color: "var(--muted)", fontSize: 13, marginBottom: 22, lineHeight: 1.6 }}>This test must be taken in fullscreen mode. Tab switches will be recorded.</p>
         <button onClick={() => { document.documentElement.requestFullscreen?.(); setFs(true); }} style={{ width: "100%", padding: "10px", background: "var(--amber)", border: "none", borderRadius: "var(--radius)", color: "#0C0E14", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
-          Enter Fullscreen &amp; Begin
+          Enter Fullscreen & Begin
         </button>
       </div>
     </div>
   );
 
+  // DATA LOADING GUARD (Crucial to prevent "undefined" error)
+  if (loading || qs.length === 0) return <Loader />;
+
+  const q = qs[cur];
+  const m = Math.floor(tLeft / 60), s = tLeft % 60;
+  const timerCol = tLeft < 60 ? "var(--red)" : tLeft < 180 ? "var(--amber)" : "var(--green)";
+  const answered = Object.keys(ans).length;
+
   return (
-    <>{loading && <Loader />}
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--bg)" }}>
       {/* Header */}
       <div style={{ padding: "11px 22px", background: "var(--surface)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
         <div>
           <span style={{ fontSize: 13, fontWeight: 600, color: "var(--white)" }}>{config.type === "ai" ? `${config.subject} · ${config.topic}` : config.title}</span>
-          <span style={{ marginLeft: 10, fontSize: 11, color: "var(--muted)" }}>{config.type === "ai" ? config.difficulty?.toUpperCase() : config.subject}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           {tabs > 0 && <span style={{ fontSize: 12, color: "var(--red)", fontWeight: 600 }}>⚠ {tabs} tab switch{tabs > 1 ? "es" : ""}</span>}
@@ -148,7 +200,6 @@ console.log("Submitting:", {
               <div style={{ flex: 1, height: 3, background: "var(--border2)", borderRadius: 2 }}>
                 <div style={{ width: `${((cur + 1) / qs.length) * 100}%`, height: "100%", background: "var(--amber)", borderRadius: 2, transition: "width .3s" }} />
               </div>
-              {mrk[cur] && <span style={{ fontSize: 11, color: "var(--amber)", fontWeight: 600 }}>Marked</span>}
             </div>
 
             <div style={card({ padding: 20, marginBottom: 16 })}>
@@ -164,25 +215,23 @@ console.log("Submitting:", {
                     <span style={{ width: 26, height: 26, borderRadius: 6, flexShrink: 0, background: sel ? "var(--amber)" : "var(--bg)", border: `1px solid ${sel ? "var(--amber)" : "var(--border2)"}`, display: "flex", alignItems: "center", justifyContent: "center", color: sel ? "#0C0E14" : "var(--muted)", fontSize: 11, fontWeight: 700 }}>
                       {sel ? <Icon n="check" s={12} /> : String.fromCharCode(65 + oi)}
                     </span>
-                    <span style={{ fontSize: 14, color: sel ? "var(--amber)" : "var(--body)", fontWeight: sel ? 600 : 400 }}>{opt}</span>
+                    <span style={{ fontSize: 14, color: sel ? "var(--amber)" : "var(--body)", fontWeight: sel ? 600 : 400 }}>{opt.option_text}</span>
                   </button>
                 );
               })}
             </div>
 
             <div style={{ display: "flex", gap: 9 }}>
-              <button onClick={() => cur > 0 && setCur(cur - 1)} disabled={cur === 0}
-                style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 15px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", color: cur === 0 ? "var(--muted)" : "var(--body)", cursor: cur === 0 ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 500, opacity: cur === 0 ? 0.5 : 1 }}>
+              <button onClick={() => cur > 0 && setCur(cur - 1)} disabled={cur === 0} style={{ padding: "7px 15px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", color: "var(--body)", cursor: "pointer", fontSize: 13, opacity: cur === 0 ? 0.5 : 1 }}>
                 <Icon n="chevL" s={13} /> Prev
               </button>
-              <button onClick={() => setMrk({ ...mrk, [cur]: !mrk[cur] })}
-                style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 15px", background: mrk[cur] ? "rgba(240,165,0,0.07)" : "var(--surface)", border: `1px solid ${mrk[cur] ? "var(--amber)" : "var(--border)"}`, borderRadius: "var(--radius)", cursor: "pointer", fontSize: 13, fontWeight: 500, color: mrk[cur] ? "var(--amber)" : "var(--muted)" }}>
-                <Icon n="flag" s={13} />{mrk[cur] ? "Unmark" : "Mark"}
+              <button onClick={() => setMrk({ ...mrk, [cur]: !mrk[cur] })} style={{ padding: "7px 15px", background: mrk[cur] ? "rgba(240,165,0,0.07)" : "var(--surface)", border: `1px solid ${mrk[cur] ? "var(--amber)" : "var(--border)"}`, borderRadius: "var(--radius)", color: mrk[cur] ? "var(--amber)" : "var(--muted)", fontSize: 13, cursor: "pointer" }}>
+                <Icon n="flag" s={13} /> {mrk[cur] ? "Unmark" : "Mark"}
               </button>
               <div style={{ flex: 1 }} />
               {cur < qs.length - 1
-                ? <button onClick={() => setCur(cur + 1)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 17px", background: "var(--amber)", border: "none", borderRadius: "var(--radius)", color: "#0C0E14", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>Next <Icon n="chevR" s={13} /></button>
-                : <button onClick={() => setSubM(true)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 17px", background: "var(--green)", border: "none", borderRadius: "var(--radius)", color: "#0C0E14", cursor: "pointer", fontSize: 13, fontWeight: 700 }}><Icon n="check" s={13} /> Submit</button>
+                ? <button onClick={() => setCur(cur + 1)} style={{ padding: "7px 17px", background: "var(--amber)", border: "none", borderRadius: "var(--radius)", color: "#0C0E14", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>Next <Icon n="chevR" s={13} /></button>
+                : <button onClick={() => setSubM(true)} style={{ padding: "7px 17px", background: "var(--green)", border: "none", borderRadius: "var(--radius)", color: "#0C0E14", cursor: "pointer", fontSize: 13, fontWeight: 700 }}><Icon n="check" s={13} /> Submit</button>
               }
             </div>
           </div>
@@ -199,19 +248,12 @@ console.log("Submitting:", {
               </button>
             ))}
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-            {[["var(--green)", `Answered (${answered})`], ["var(--amber)", `Marked (${Object.keys(mrk).length})`], ["var(--border2)", `Remaining (${qs.length - answered})`]].map(([c, l], i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, color: "var(--muted)" }}>
-                <div style={{ width: 8, height: 8, borderRadius: 2, background: c }} />{l}
-              </div>
-            ))}
-          </div>
           <button onClick={() => setSubM(true)} style={{ marginTop: "auto", width: "100%", padding: "8px", background: "var(--surface2)", border: "1px solid var(--border2)", borderRadius: "var(--radius)", color: "var(--body)", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Submit Test</button>
         </div>
       </div>
 
       <ConfirmModal show={quitM} title="Quit test?" body="Your progress will be lost." onCancel={() => setQuitM(false)} onConfirm={() => { if (document.fullscreenElement) document.exitFullscreen(); setPage("home"); }} cancelTxt="Cancel" confirmTxt="Quit" danger />
       <ConfirmModal show={subM} title="Submit test?" body={`${answered}/${qs.length} answered · ${Object.keys(mrk).length} marked`} onCancel={() => setSubM(false)} onConfirm={doSubmit} cancelTxt="Review" confirmTxt="Submit" />
-    </div></>
+    </div>
   );
 }

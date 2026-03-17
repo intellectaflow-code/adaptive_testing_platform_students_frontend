@@ -1,6 +1,9 @@
+import { useState, useEffect } from "react";
 import Icon from "../components/Icon";
 import { card, initials } from "../utils/styles";
 import Loader from "../components/Loader";
+import API from "../api/api";
+
 
 const BADGES = [
   { e: "⚡", label: "Speed Demon",  desc: "5 tests under 10 min",  earned: true  },
@@ -12,6 +15,26 @@ const BADGES = [
 ];
 
 export default function ProfilePage({ student, setPage }) {
+  const [courses, setCourses] = useState([]);
+  const [loadingCourses, setLoadingCourses] = useState(true);
+
+
+
+useEffect(() => {
+  const fetchCourses = async () => {
+    try {
+      const res = await API.get("/courses");
+      setCourses(res.data);
+    } catch (err) {
+      console.error("Failed to load courses", err);
+    } finally {
+      setLoadingCourses(false);
+    }
+  };
+
+  fetchCourses();
+}, []);
+
   return (
     <div style={{ padding: "24px 28px", maxWidth: 760, margin: "0 auto" }}>
       <div style={card({ padding: "24px 26px", marginBottom: 12 })}>
@@ -23,7 +46,7 @@ export default function ProfilePage({ student, setPage }) {
             <div style={{ fontSize: 17, fontWeight: 700, color: "var(--white)", marginBottom: 2 }}>{student.full_name}</div>
             <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 9 }}>{student.email}</div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              {[student.usn, student.branch, `Sem ${student.semester}`, `Sec ${student.section}`].map((v, i) => (
+              {[student.usn, student.branch, `Sem ${student.sem}`, `Sec ${student.section}`].map((v, i) => (
                 <span key={i} style={{ padding: "3px 9px", background: "var(--bg)", border: "1px solid var(--border2)", borderRadius: 20, fontSize: 11, color: "var(--body)" }}>{v}</span>
               ))}
             </div>
@@ -43,6 +66,40 @@ export default function ProfilePage({ student, setPage }) {
           </div>
         ))}
       </div>
+
+      <div style={card({ padding: 18, marginBottom: 12 })}>
+      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 10 }}>
+        Enrolled Courses
+      </div>
+
+      {loadingCourses ? (
+        <Loader />
+      ) : (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {courses.length > 0 ? (
+            courses.map((c) => (
+              <span
+                key={c.id}
+                style={{
+                  padding: "6px 12px",
+                  background: "var(--bg)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 20,
+                  fontSize: 12,
+                  color: "var(--body)"
+                }}
+              >
+                {c.name}
+              </span>
+            ))
+          ) : (
+            <span style={{ fontSize: 12, color: "var(--muted)" }}>
+              No courses enrolled
+            </span>
+          )}
+        </div>
+      )}
+    </div>
 
       <div style={card({ padding: 20 })}>
         <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 12 }}>Achievements</div>

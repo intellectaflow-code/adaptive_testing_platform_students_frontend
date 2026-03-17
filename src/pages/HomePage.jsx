@@ -209,15 +209,9 @@ const startAI = async () => {
                 {status === "live" && (
                   <button
                     onClick={() => startTeacher(t)}
-                    style={{
-                      width: "100%",
-                      padding: "7px",
-                      border: "1px solid var(--border2)",
-                      borderRadius: "var(--radius)",
-                      background: "none",
-                      cursor: "pointer"
-                    }}
-                  >
+                    style={{ width: "100%", padding: "10px", background: "var(--amber)", border: "none", borderRadius: "var(--radius)", color: "#0C0E14", fontSize: 13, fontWeight: 700, cursor: "pointer", marginTop: 2 }}
+                      onMouseEnter={(e) => (e.currentTarget.style.opacity = ".85")}
+                      onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}>
                     ▶ Start Test
                   </button>
                 )}

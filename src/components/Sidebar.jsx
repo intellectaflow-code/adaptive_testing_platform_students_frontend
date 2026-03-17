@@ -10,8 +10,7 @@ const NAV_ITEMS = [
   { id: "settings",      n: "settings",  label: "Settings" },
 ];
 
-export default function Sidebar({ page, setPage, student, onLogout }) {
-  const [col, setCol] = useState(false);
+export default function Sidebar({ page, setPage, student, onLogout, col, setCol }) {
   console.log("Current Student in Sidebar:", student);
 
   return (
@@ -24,8 +23,10 @@ export default function Sidebar({ page, setPage, student, onLogout }) {
         display: "flex",
         flexDirection: "column",
         flexShrink: 0,
-        position: "sticky",
+        position: "fixed",
         top: 0,
+        left: 0,
+        height: "100vh",
         transition: "width .25s ease",
         zIndex: 40,
         overflow: "hidden",

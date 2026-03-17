@@ -29,6 +29,7 @@ export default function App() {
   const [quizConfig, setQuizConfig] = useState(null);
   const [results, setResults] = useState(null);
   const [attemptResult, setAttemptResult] = useState(null);
+  const [col, setCol] = useState(false);
 
 
   const tokens = getThemeTokens(theme);
@@ -97,9 +98,26 @@ const handleLogout = () => {
 
         ) : (
           <>
-            <Sidebar page={page} setPage={setPage} student={student || {}} onLogout={handleLogout} />
+            <Sidebar
+              page={page}
+              setPage={setPage}
+              student={student || {}}
+              onLogout={handleLogout}
+              col={col}
+              setCol={setCol}
+            />
             
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: "100vh", overflow: "hidden" }}>
+            <div
+              style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                minHeight: "100vh",
+                overflow: "hidden",
+                marginLeft: col ? 52 : 220,   // 🔥 THIS IS THE FIX
+                transition: "margin-left .25s ease",
+              }}
+            >
               <Topbar page={page} theme={theme} setTheme={setTheme} setPage={setPage} />
               <main style={{ flex: 1, overflowY: "auto" }}>
                 {/* ... existing page logic (page === "home", etc) ... */}
