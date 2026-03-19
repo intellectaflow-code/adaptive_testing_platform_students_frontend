@@ -8,6 +8,7 @@ export default function LoginPage({ setAuthPage, onLogin }) {
   const [form, setForm] = useState({ email: "", password: "" });
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPass, setShowPass] = useState(false);
   const [loggedIn, setLoggedIn] = useState(!!localStorage.getItem("access_token"));
 
   const [student, setStudent] = useState(() => {
@@ -57,11 +58,17 @@ const submit = async () => {
   setLoading(false);
 };
 
-  const inputStyle = {
-    width: "100%", padding: "9px 12px", background: "var(--bg)",
-    border: "1px solid var(--border2)", borderRadius: "var(--radius)",
-    color: "var(--white)", fontSize: 13, outline: "none", boxSizing: "border-box",
-  };
+const inputStyle = {
+  width: "100%",
+  padding: "9px 38px 9px 12px", 
+  background: "var(--bg)",
+  border: "1px solid var(--border2)",
+  borderRadius: "var(--radius)",
+  color: "var(--white)",
+  fontSize: 13,
+  outline: "none",
+  boxSizing: "border-box",
+};
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)", padding: 16 }}>
@@ -85,10 +92,44 @@ const submit = async () => {
             <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="you@university.edu" type="email" style={inputStyle} onKeyDown={(e) => e.key === "Enter" && submit()} />
           </div>
           <div style={{ marginBottom: 20 }}>
-            <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>Password</label>
-            <input value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Enter password" type="password" style={inputStyle} onKeyDown={(e) => e.key === "Enter" && submit()} />
+            <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 6 }}>
+              Password
+            </label>
+
+            <div style={{ position: "relative" }}>
+              <input
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                placeholder="Enter password"
+                type={showPass ? "text" : "password"}
+                style={inputStyle}
+                onKeyDown={(e) => e.key === "Enter" && submit()}
+              />
+
+              <span
+                onClick={() => setShowPass(!showPass)}
+                style={{
+                  position: "absolute",
+                  right: 12,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 22,
+                  height: 22,
+                  color: "var(--muted)",
+                }}
+              >
+                <Icon n={showPass ? "eyeOff" : "eye"} s={16} />
+              </span>
+            </div>
+
             <div style={{ textAlign: "right", marginTop: 6 }}>
-              <span style={{ fontSize: 12, color: "var(--amber)", cursor: "pointer" }}>Forgot password?</span>
+              <span style={{ fontSize: 12, color: "var(--amber)", cursor: "pointer" }}>
+                Forgot password?
+              </span>
             </div>
           </div>
           <button onClick={submit} disabled={loading} style={{ width: "100%", padding: "10px", background: "var(--amber)", border: "none", borderRadius: "var(--radius)", color: "#0C0E14", fontWeight: 700, cursor: "pointer", fontSize: 13, opacity: loading ? 0.7 : 1, transition: "opacity .15s" }}>

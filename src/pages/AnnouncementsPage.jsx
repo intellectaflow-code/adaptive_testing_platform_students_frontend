@@ -38,7 +38,7 @@ if (loading) return <Loader />;
           <p style={{ color: "var(--muted)", fontSize: 13 }}>Latest updates from your teachers</p>
         </div>
         <div style={{ display: "flex", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", overflow: "hidden" }}>
-          {[["all", "All"], ["new", "New"], ["high", "Urgent"]].map(([id, lbl]) => (
+          {[["all", "All"], ["new", "New"]].map(([id, lbl]) => (
             <button key={id} onClick={() => setFilter(id)}
               style={{ padding: "6px 13px", border: "none", cursor: "pointer", background: filter === id ? "var(--amber)" : "transparent", color: filter === id ? "#0C0E14" : "var(--muted)", fontWeight: filter === id ? 700 : 400, fontSize: 12, transition: "all .15s" }}>
               {lbl}

@@ -164,26 +164,72 @@ const startAI = async () => {
         </div>
 
         {/* Teacher Tests */}
-        <div style={card({ padding: 22 })}>
+        <div style={card({
+          padding: 22,
+          height: 420,              // 👈 FIXED HEIGHT (adjust 480–600)
+          display: "flex",
+          flexDirection: "column"
+        })}>
+          
+          {/* Header (fixed) */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
-            <div style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(96,165,250,0.1)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--blue)", flexShrink: 0 }}>
+            <div style={{
+              width: 30,
+              height: 30,
+              borderRadius: 8,
+              background: "rgba(96,165,250,0.1)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "var(--blue)",
+              flexShrink: 0
+            }}>
               <Icon n="book" s={15} />
             </div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--white)" }}>Teacher Tests</div>
-              <div style={{ fontSize: 11, color: "var(--muted)" }}>Live &amp; upcoming scheduled tests</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--white)" }}>
+                Teacher Tests
+              </div>
+              <div style={{ fontSize: 11, color: "var(--muted)" }}>
+                Live & upcoming scheduled tests
+              </div>
             </div>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-          {teacherTests.map((t) => {
+
+          {/* Scrollable list */}
+          <div
+            style={{
+              flex: 1,                 // 👈 takes remaining space
+              overflowY: "auto",
+              display: "flex",
+              flexDirection: "column",
+              gap: 9,
+              paddingRight: 4
+            }}
+          >
+          {testsLoading ? (
+            <div style={{ color: "var(--muted)", fontSize: 12 }}>
+              Loading tests...
+            </div>
+          ) : teacherTests.length === 0 ? (
+            <div style={{ color: "var(--muted)", fontSize: 12 }}>
+              No tests available
+            </div>
+          ) : (
+            teacherTests.map((t) => {
 
             const now = new Date();
             const start = t.start_time ? new Date(t.start_time) : null;
             const end = t.end_time ? new Date(t.end_time) : null;
 
-            const status =
-              now >= start && now <= end ? "live" :
-              now < start ? "upcoming" : "ended";
+          const status =
+            start && end
+              ? now >= start && now <= end
+                ? "live"
+                : now < start
+                ? "upcoming"
+                : "ended"
+              : "upcoming";
 
             return (
               <div key={t.id} style={{ background: "var(--bg)", border: "1px solid var(--border2)", borderRadius: "var(--radius)", padding: "13px 15px" }}>
@@ -217,7 +263,8 @@ const startAI = async () => {
                 )}
               </div>
             );
-          })}
+          })
+)}
           </div>
         </div>
       </div>

@@ -1,13 +1,14 @@
 import { useState, useEffect, useMemo } from "react";
 import Icon from "../components/Icon";
+import Select from "../components/Select";
 import LineChart from "../components/LineChart";
 import AttendanceBar from "../components/AttendanceBar";
 import RadialChart from "../components/RadialChart";
 import CalDrop from "../components/CalDrop";
-import { PERF, MOCK_QUESTIONS } from "../data/mockData";
 import { card, scoreColor, pill } from "../utils/styles";
 import Loader from "../components/Loader";
 import API from "../api/api";
+
 
 export default function DashboardPage({ setPage, setAttemptResult, user }) {
 const [stats, setStats] = useState(null);
@@ -18,10 +19,13 @@ const [leaderboard, setLeaderboard] = useState([]);
 const [filter, setFilter] = useState("teacher");
 const [teacherCourses, setTeacherCourses] = useState([]);
 const [loading, setLoading] = useState(false);
+const [lbLoading, setLbLoading] = useState(false);
 const [showCal, setShowCal] = useState(false);
 const [dateRange, setDateRange] = useState(null);
 const [showAllLB, setShowAllLB] = useState(false);
 const [showAllAttempts, setShowAllAttempts] = useState(false);
+const [courses, setCourses] = useState([]);
+const [selectedCourse, setSelectedCourse] = useState(null);
 const COLORS = ["#F59E0B", "#10B981", "#3B82F6", "#EF4444", "#8B5CF6"];
 
 function getColor(name) {
@@ -32,6 +36,7 @@ function getColor(name) {
   return COLORS[Math.abs(hash) % COLORS.length];
 }
 
+
   // 1. Fetch teacher courses from FastAPI
 useEffect(() => {
   const loadDashboard = async () => {
@@ -39,32 +44,70 @@ useEffect(() => {
 
     try {
       if (filter === "teacher") {
-  const res = await API.get("/analytics/student/dashboard");
-  console.log("ATTEMPTS RAW:", res.data.attempts);
+        const params = {};
+
+        if (dateRange?.s) params.start_date = dateRange.s.toISOString();
+        if (dateRange?.e) params.end_date = dateRange.e.toISOString();
+  const res = await API.get("/analytics/student/dashboard", { params });
+  console.log("ATTEMPT RAW:", res.data.attempts[0]);
 
   setStats(res.data.stats);
 
-  // 🔥 transform to match UI
-  setSubjects(res.data.subjects.map(s => ({
-    name: s.subject,
-    subject: s.subject,
-    score: s.avg_score,
-    tests: s.tests_taken,
-    color: getColor(s.subject)
-  })));
-
-setTrend(res.data.trend.map(t => ({
-  score: t.total_score,
-  avg: t.total_score, // fallback (since no class_avg)
-  month: new Date(t.submitted_at).toLocaleDateString("en-US", { month: "short" })
-})));
-
-setAttempts(res.data.attempts.map(a => ({
+let attemptsData = res.data.attempts.map(a => ({
   ...a,
   id: a.attempt_id,
   title: a.test_title,
-  attempt_date: a.attempt_date // keep same naming
+  attempt_date: a.attempt_date,
+  score: a.accuracy,
+  subject: a.subject
+}));
+
+// 🔥 HARD FILTER (frontend truth layer)
+if (dateRange?.s && dateRange?.e) {
+  attemptsData = attemptsData.filter(a => {
+    const d = new Date(a.attempt_date);
+    return d >= dateRange.s && d <= dateRange.e;
+  });
+}
+
+setAttempts(attemptsData);
+
+// 🔥 compute subject averages from attempts
+const subjectMap = {};
+
+attemptsData.forEach(a => {
+  if (!subjectMap[a.subject]) {
+    subjectMap[a.subject] = { total: 0, count: 0 };
+  }
+  subjectMap[a.subject].total += a.score || 0;
+  subjectMap[a.subject].count += 1;
+});
+
+const computedSubjects = Object.entries(subjectMap).map(([subject, data]) => ({
+  name: subject,
+  subject,
+  score: Math.round(data.total / data.count),
+  tests: data.count,
+  color: getColor(subject)
+}));
+
+setSubjects(computedSubjects);
+
+let trendData = res.data.trend;
+
+if (dateRange?.s && dateRange?.e) {
+  trendData = trendData.filter(t => {
+    const d = new Date(t.submitted_at);
+    return d >= dateRange.s && d <= dateRange.e;
+  });
+}
+
+setTrend(trendData.map(t => ({
+  score: t.total_score,
+  avg: t.total_score,
+  month: new Date(t.submitted_at).toLocaleDateString("en-US", { month: "short" })
 })));
+
 }
     } catch (err) {
       console.error(err);
@@ -74,33 +117,79 @@ setAttempts(res.data.attempts.map(a => ({
   };
 
   loadDashboard();
-}, [filter]);
+}, [filter, dateRange]);
 
 useEffect(() => {
-  if (!user?.course_id) return;
+  if (!selectedCourse) return;
 
-  API.get(`/analytics/student/course/${user.course_id}/leaderboard`)
+  setLbLoading(true);
+
+  API.get("/analytics/leaderboard", {
+    params: { course_id: selectedCourse }
+  })
     .then(res => setLeaderboard(res.data))
-    .catch(console.error);
+    .catch(err => console.error("Leaderboard error:", err))
+    .finally(() => setLbLoading(false));
 
-}, [user]);
+}, [selectedCourse]);
 
+useEffect(() => {
+  API.get("/courses")
+    .then(res => {
+      console.log("COURSES:", res.data);
+
+      setCourses(res.data);
+
+      if (res.data.length > 0) {
+        setSelectedCourse(res.data[0].id); // ✅ FIX
+      }
+    })
+    .catch(err => console.error("Courses error:", err));
+}, []);
+
+const avgScore = useMemo(() => {
+  if (!attempts.length) return 0;
+
+  const total = attempts.reduce((sum, a) => sum + (a.score || 0), 0);
+  return (total / attempts.length).toFixed(2);
+}, [attempts]);
+
+const courseOptions = courses.map(c => ({
+  label: c.name,
+  value: c.id
+}));
+
+const computedStats = useMemo(() => {
+  if (!attempts.length) {
+    return {
+      tests_taken: 0,
+      avg_score: 0,
+      best_score: 0
+    };
+  }
+
+  const scores = attempts.map(a => a.score || 0);
+
+  return {
+    tests_taken: attempts.length,
+    avg_score: (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2),
+    best_score: Math.max(...scores)
+  };
+}, [attempts]);
 
   // 3. Dynamic Stats Calculation
-const statCards = useMemo(() => {
-  if (!stats) return [];
 
-  return [
-    { l: "Tests Taken", v: stats.tests_taken || 0, n: "book", note: "+3 this week" },
-    { l: "Avg Score", v: `${stats.avg_score || 0}%`, n: "target", note: "Filtered Result" },
-    { l: "Best Score", v: `${stats.best_score || 0}%`, n: "trophy", note: "Top Performance" },
-    { l: "Streak", v: "7 days", n: "bolt", note: "Keep going!" }
-  ];
-}, [stats]);
+const statCards = [
+  { l: "Tests Taken", v: computedStats.tests_taken, n: "book", note: "+3 this week" },
+  { l: "Avg Score", v: `${computedStats.avg_score}%`, n: "target", note: "Filtered Result" },
+  { l: "Best Score", v: `${computedStats.best_score}%`, n: "trophy", note: "Top Performance" },
+  { l: "Streak", v: "7 days", n: "bolt", note: "Keep going!" }
+];
     
   const formattedTrend = trend;
 
-  const lbShow = showAllLB ? leaderboard : leaderboard.slice(0, 5);
+  const sortedLB = [...leaderboard].sort((a, b) => a.rank - b.rank);
+  const lbShow = showAllLB ? sortedLB : sortedLB.slice(0, 5);
   const attShow = showAllAttempts ? attempts : attempts.slice(0, 5);
 
 const openAttempt = async (a) => {
@@ -139,7 +228,15 @@ const openAttempt = async (a) => {
               style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", background: "var(--surface)", border: `1px solid ${dateRange ? "var(--amber)" : "var(--border2)"}`, borderRadius: "var(--radius)", color: dateRange ? "var(--amber)" : "var(--muted)", cursor: "pointer", fontSize: 12, fontWeight: 500 }}>
               <Icon n="cal" s={13} />{dateRange ? `${dateRange.s.toLocaleDateString()} – ${dateRange.e?.toLocaleDateString() || "..."}` : "Filter by date"}
             </button>
-            {showCal && <CalDrop onSelect={(r) => setDateRange(r)} onClose={() => setShowCal(false)} />}
+            {showCal && (
+                  <CalDrop
+                    onSelect={(r) => {
+                      setDateRange(r);
+                      setShowCal(false); // 👈 important
+                    }}
+                    onClose={() => setShowCal(false)}
+                  />
+                )}
           </div>
           <div style={{ display: "flex", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", overflow: "hidden" }}>
           {[
@@ -177,7 +274,7 @@ const openAttempt = async (a) => {
       {/* Overview - Now Dynamic */}
       <div style={card({ padding: 16 })}>
         <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 8, textAlign: "center" }}>Subject Overview</div>
-        <RadialChart subjects={subjects} />
+        <RadialChart subjects={subjects} avgScore={avgScore} />
         <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: 8 }}>
           {subjects.map((s, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11 }}>
@@ -190,7 +287,7 @@ const openAttempt = async (a) => {
       </div><br />
 
       {/* Score Trend + Attendance */}
-      <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 14, marginBottom: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 14, marginBottom: 13 }}>
         <div style={card({ padding: 20 })}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: "var(--white)" }}>Score Trend</span>
@@ -226,25 +323,130 @@ const openAttempt = async (a) => {
 
       {/* Leaderboard + Attempts */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1.7fr", gap: 14 }}>
-        <div style={card({ padding: 20 })}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 12 }}>Leaderboard</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {lbShow.map((s, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", background: s.isMe ? "rgba(240,165,0,0.06)" : "var(--bg)", border: `1px solid ${s.isMe ? "rgba(240,165,0,0.18)" : "transparent"}`, borderRadius: "var(--radius)" }}>
-                <span style={{ width: 17, fontSize: 11, fontWeight: 700, color: i < 3 ? "var(--amber)" : "var(--muted)", textAlign: "center" }}>{s.rank}</span>
-                <div style={{ width: 26, height: 26, borderRadius: "50%", background: s.isMe ? "var(--amber)" : "var(--surface2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: s.isMe ? "#0C0E14" : "var(--muted)", flexShrink: 0 }}>{s.initials}</div>
-                <span style={{ flex: 1, fontSize: 12, color: s.isMe ? "var(--amber)" : "var(--body)", fontWeight: s.isMe ? 600 : 400 }}>{s.name}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--white)" }}>{s.score}%</span>
-              </div>
-            ))}
+      <div style={card({ padding: 20 })}>
+      <div style={{ 
+        display: "flex", 
+        alignItems: "center", 
+        justifyContent: "space-between",
+        marginBottom: 14,
+        gap:12,
+      }}>
+      <span style={{ fontSize: 13, fontWeight: 600, color: "var(--white)",letterSpacing: 0.3   // ✅ subtle polish
+      }}>
+        Leaderboard
+      </span>
+
+          <div style={{ width: 160}}>
+          <Select
+            value={selectedCourse}
+            onChange={setSelectedCourse}
+            options={courseOptions}
+            placeholder="Select course"
+            styleOverrides={{
+              button: {
+                background: "rgba(255,255,255,0.02)",   // subtle glass look
+                border: "1px solid rgba(255,255,255,0.08)",
+                padding: "5px 26px 5px 10px",
+                fontSize: 12,
+                borderRadius: 10,
+                minWidth: 150,
+                backdropFilter: "blur(6px)",
+              },
+              dropdown: {
+                background: "#0F172A", // darker than card
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: 12,
+                boxShadow: "0 12px 40px rgba(0,0,0,.6)",
+                marginTop: 6,
+              }
+            }}
+          />
           </div>
-          {viewMoreBtn(showAllLB, () => setShowAllLB(!showAllLB))}
         </div>
+        <div style={{display: "flex",  flexDirection: "column",  gap: 6,  maxHeight: 260,   overflowY: "auto",  paddingRight: 4 }}>
+            {lbLoading ? (
+              <div style={{ fontSize: 12, color: "var(--muted)" }}>Loading...</div>
+            ) : lbShow.length === 0 ? (
+              <div style={{ fontSize: 12, color: "var(--muted)" }}>No data</div>
+            ) : (
+              lbShow.map((s, i) => (
+                <div
+                  key={s.student_id || i} // ✅ better key
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "7px 10px",
+                    background: s.isMe ? "rgba(240,165,0,0.06)" : "var(--bg)",
+                    border: `1px solid ${
+                      s.isMe ? "rgba(240,165,0,0.18)" : "transparent"
+                    }`,
+                    borderRadius: "var(--radius)",
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 17,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: s.rank <= 3 ? "var(--amber)" : "var(--muted)", // ✅ FIX
+                      textAlign: "center",
+                    }}
+                  >
+                    {s.rank}
+                  </span>
+
+                  <div
+                    style={{
+                      width: 26,
+                      height: 26,
+                      borderRadius: "50%",
+                      background: s.isMe ? "var(--amber)" : "var(--surface2)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: s.isMe ? "#0C0E14" : "var(--muted)",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {s.initials}
+                  </div>
+
+                  <span
+                    style={{
+                      flex: 1,
+                      fontSize: 12,
+                      color: s.isMe ? "var(--amber)" : "var(--body)",
+                      fontWeight: s.isMe ? 600 : 400,
+                    }}
+                  >
+                    {s.name}
+                  </span>
+
+                  <span
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: "var(--white)",
+                    }}
+                  >
+                    {s.score}%
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+
+{viewMoreBtn(showAllLB, () => setShowAllLB(!showAllLB))}
+</div>  {/* ✅ CLOSE LEADERBOARD CARD */}
 
         <div style={card({ padding: 20 })}>
           <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 12 }}>
             Attempts <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 400 }}>({attempts.length})</span>
           </div>
+          <div style={{ maxHeight: 320,  overflowY: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>{["Test", "Type", "Date", "Score", "Time"].map((h) => <th key={h} style={{ padding: "5px 9px", textAlign: "left", fontSize: 11, color: "var(--muted)", fontWeight: 500, borderBottom: "1px solid var(--border)", textTransform: "uppercase" }}>{h}</th>)}</tr>
@@ -273,7 +475,7 @@ const openAttempt = async (a) => {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
           {viewMoreBtn(showAllAttempts, () => setShowAllAttempts(!showAllAttempts))}
         </div>
       </div>

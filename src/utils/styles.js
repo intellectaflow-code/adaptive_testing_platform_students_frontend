@@ -30,3 +30,5 @@ export const initials = (name) =>
     .join("")
     .slice(0, 2)
     .toUpperCase();
+
+

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import Icon from "./Icon";
 
-export default function Select({ value, onChange, options, placeholder }) {
+export default function Select({ value, onChange, options, placeholder, styleOverrides = {} }) {
   const [open, setOpen] = useState(false);
   const ref = useRef();
 
@@ -34,6 +34,7 @@ export default function Select({ value, onChange, options, placeholder }) {
           justifyContent: "space-between",
           transition: "border-color .2s",
           outline: "none",
+          ...styleOverrides.button   // ✅ ADD THIS
         }}
         onFocus={(e) => (e.currentTarget.style.borderColor = "var(--amber)")}
         onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border2)")}
@@ -71,6 +72,7 @@ export default function Select({ value, onChange, options, placeholder }) {
             overflow: "hidden",
             maxHeight: 220,
             overflowY: "auto",
+            ...styleOverrides.dropdown   // ✅ ADD THIS
           }}
         >
           {options.map((opt, i) => {

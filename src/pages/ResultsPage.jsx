@@ -4,28 +4,34 @@ import Loader from "../components/Loader";
 
 export default function ResultsPage({ results, setPage, fromDashboard }) {
   if (!results) return <Loader />;
-  const normalized = {
-  questions: results.questions || [],   // backend doesn’t send → empty
-  correct: results.correct || 0,
-  total: results.total || 0,
-  score: results.score || 0,
-  timeSpent: results.time_spent_seconds || 0,
-  tabs: results.tabs || 0,
-  config: {
-    title: results.test_title,
-    subject: results.subject,
-    type: results.type
-  }
-};
 
-  const { questions, correct, total, score, timeSpent, tabs, config } = normalized;
-  console.log("RESULT QUESTIONS:", questions);
+  const normalized = {
+    questions: results.questions || [],
+    correct: results.correct || 0,
+    total: results.total || 0,
+    timeSpent: results.time_spent_seconds || 0,
+    tabs: results.tabs || 0,
+    config: {
+      title: results.test_title,
+      subject: results.subject,
+      type: results.type
+    }
+  };
+
+  const { questions, correct, total, timeSpent, tabs, config } = normalized;
+  const attempted = total; 
+  const wrong = total - correct;
+  
+  // 1. Calculate Score based on Accuracy
+  const accuracyScore = total > 0 ? Math.round((correct / total) * 100) : 0;
+
+  const scoreDisplayColor = scoreColor(accuracyScore);
   const mins = Math.floor(timeSpent / 60), secs = timeSpent % 60;
 
   return (
     <div style={{ padding: "24px 28px", maxWidth: 800, margin: "0 auto" }}>
       {fromDashboard && (
-        <button onClick={() => setPage("dashboard")} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 12, marginBottom: 16 }}>
+        <button onClick={() => setPage("dashboard")} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 12, marginBottom: 16}}>
           <Icon n="chevL" s={13} /> Back to Dashboard
         </button>
       )}
@@ -34,22 +40,25 @@ export default function ResultsPage({ results, setPage, fromDashboard }) {
       <div style={card({ padding: "24px 28px", marginBottom: 16 })}>
         <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
           <div style={{ textAlign: "center", minWidth: 82 }}>
-            <div style={{ fontSize: 48, fontWeight: 800, color: scoreColor(score), lineHeight: 1 }}>{score}%</div>
+            {/* FIX: Using scoreDisplayColor variable here */}
+            <div style={{ fontSize: 48, fontWeight: 800, color: scoreDisplayColor, lineHeight: 1 }}>
+                {accuracyScore}%
+            </div>
             <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>Score</div>
           </div>
+          
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 2 }}>
               {config?.type === "ai" ? `${config.subject} · ${config.topic}` : config?.title || "Test"}
             </div>
             <div style={{ fontSize: 16, fontWeight: 700, color: "var(--white)", marginBottom: 12 }}>
-              {score >= 80 ? "Well done!" : score >= 60 ? "Good effort" : "Keep practising"}
-            </div>
+              {/* Threshold logic updated to match your color request */}
+              {accuracyScore >= 8 ? "Well done!": accuracyScore >= 60? "Good effort": "Keep practising"}</div>
             <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
               {[
                 ["Correct", `${correct}/${total}`, "var(--green)"],
-                ["Wrong", `${total - correct}/${total}`, "var(--red)"],
+                ["Wrong", `${wrong}/${attempted}`, "var(--red)"],
                 ["Time", `${mins}m ${secs}s`, "var(--blue)"],
-                ["Accuracy", `${score}%`, "var(--amber)"]
               ].map(([l, v, c]) => (
                 <div key={l}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: c }}>{v}</div>
