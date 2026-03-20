@@ -1,9 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";  // ← add useMemo
 import Icon from "../components/Icon";
 import { card, initials } from "../utils/styles";
 import Loader from "../components/Loader";
 import API from "../api/api";
-
 
 const BADGES = [
   { e: "⚡", label: "Speed Demon",  desc: "5 tests under 10 min",  earned: true  },
@@ -15,28 +14,101 @@ const BADGES = [
 ];
 
 export default function ProfilePage({ student, setPage }) {
-  const [courses, setCourses] = useState([]);
+  const [courses, setCourses]               = useState([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
+  const [attempts, setAttempts]             = useState([]);   // ← same source as Dashboard
+  const [loadingStats, setLoadingStats]     = useState(true);
 
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const res = await API.get("/courses");
+        setCourses(res.data);
+      } catch (err) {
+        console.error("Failed to load courses", err);
+      } finally {
+        setLoadingCourses(false);
+      }
+    };
 
+    const fetchStats = async () => {
+      try {
+        const res = await API.get("/analytics/student/dashboard");
 
-useEffect(() => {
-  const fetchCourses = async () => {
-    try {
-      const res = await API.get("/courses");
-      setCourses(res.data);
-    } catch (err) {
-      console.error("Failed to load courses", err);
-    } finally {
-      setLoadingCourses(false);
+        // ── mirror the exact same mapping Dashboard does ──
+        const attemptsData = res.data.attempts.map(a => ({
+          ...a,
+          id:           a.attempt_id,
+          title:        a.test_title,
+          attempt_date: a.attempt_date,
+          score:        a.accuracy,       // ← accuracy %, same as Dashboard
+          subject:      a.subject,
+        }));
+
+        setAttempts(attemptsData);
+      } catch (err) {
+        console.error("Failed to load stats", err);
+      } finally {
+        setLoadingStats(false);
+      }
+    };
+
+    fetchCourses();
+    fetchStats();
+  }, []);
+
+  // ── exact same computedStats logic as DashboardPage ──
+  const computedStats = useMemo(() => {
+    if (!attempts.length) {
+      return { tests_taken: 0, avg_score: "0.00", best_score: 0, streak: 0 };
     }
-  };
 
-  fetchCourses();
-}, []);
+    const scores = attempts.map(a => a.score || 0);
+
+    const uniqueDays = [...new Set(
+      attempts.map(a => new Date(a.attempt_date).toLocaleDateString("en-CA"))
+    )].sort((a, b) => b.localeCompare(a));
+
+    let streak = 0;
+    let cursor = new Date();
+    cursor.setHours(0, 0, 0, 0);
+
+    for (const day of uniqueDays) {
+      const cursorStr = cursor.toLocaleDateString("en-CA");
+      if (day === cursorStr) {
+        streak++;
+        cursor.setDate(cursor.getDate() - 1);
+      } else if (day < cursorStr) {
+        if (streak === 0) {
+          cursor.setDate(cursor.getDate() - 1);
+          if (day === cursor.toLocaleDateString("en-CA")) {
+            streak++;
+            cursor.setDate(cursor.getDate() - 1);
+          } else break;
+        } else break;
+      }
+    }
+
+    return {
+      tests_taken: attempts.length,
+      avg_score:   (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2),
+      best_score:  Math.max(...scores),
+      streak,
+    };
+  }, [attempts]);
+
+  const statCards = loadingStats
+    ? [["…", "Tests"], ["…", "Avg Score"], ["…", "Best Score"], ["…", "Streak"]]
+    : [
+        [computedStats.tests_taken,           "Tests"     ],
+        [`${computedStats.avg_score}%`,        "Avg Score" ],
+        [`${computedStats.best_score}%`,       "Best Score"],
+        [`${computedStats.streak}d`,           "Streak"    ],
+      ];
 
   return (
     <div style={{ padding: "24px 28px", maxWidth: 760, margin: "0 auto" }}>
+      {/* ── Profile header ── */}
       <div style={card({ padding: "24px 26px", marginBottom: 12 })}>
         <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div style={{ width: 62, height: 62, borderRadius: "50%", background: "var(--amber)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 800, color: "#0C0E14", flexShrink: 0 }}>
@@ -58,8 +130,9 @@ useEffect(() => {
         </div>
       </div>
 
+      {/* ── Dynamic stats row ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 9, marginBottom: 12 }}>
-        {[["23", "Tests"], ["81%", "Avg Score"], ["#3", "Rank"], ["7d", "Streak"]].map(([v, l], i) => (
+        {statCards.map(([v, l], i) => (
           <div key={i} style={card({ padding: "13px 15px", textAlign: "center" })}>
             <div style={{ fontSize: 19, fontWeight: 700, color: "var(--amber)", marginBottom: 2 }}>{v}</div>
             <div style={{ fontSize: 11, color: "var(--muted)" }}>{l}</div>
@@ -67,54 +140,26 @@ useEffect(() => {
         ))}
       </div>
 
+      {/* ── Enrolled courses ── */}
       <div style={card({ padding: 18, marginBottom: 12 })}>
-      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 10 }}>
-        Enrolled Courses
-      </div>
-
-      {loadingCourses ? (
-        <Loader />
-      ) : (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {courses.length > 0 ? (
-            courses.map((c) => (
-              <span
-                key={c.id}
-                style={{
-                  padding: "6px 12px",
-                  background: "var(--bg)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 20,
-                  fontSize: 12,
-                  color: "var(--body)"
-                }}
-              >
-                {c.name}
-              </span>
-            ))
-          ) : (
-            <span style={{ fontSize: 12, color: "var(--muted)" }}>
-              No courses enrolled
-            </span>
-          )}
+        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 10 }}>
+          Enrolled Courses
         </div>
-      )}
-    </div>
-
-      <div style={card({ padding: 20 })}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 12 }}>Achievements</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8 }}>
-          {BADGES.map((b, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius)", opacity: b.earned ? 1 : 0.38 }}>
-              <span style={{ fontSize: 20 }}>{b.e}</span>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--white)" }}>{b.label}</div>
-                <div style={{ fontSize: 11, color: "var(--muted)" }}>{b.desc}</div>
-                {b.earned && <span style={{ fontSize: 10, color: "var(--green)", fontWeight: 600 }}>✓ Earned</span>}
-              </div>
-            </div>
-          ))}
-        </div>
+        {loadingCourses ? (
+          <Loader />
+        ) : (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {courses.length > 0 ? (
+              courses.map((c) => (
+                <span key={c.id} style={{ padding: "6px 12px", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 20, fontSize: 12, color: "var(--body)" }}>
+                  {c.name}
+                </span>
+              ))
+            ) : (
+              <span style={{ fontSize: 12, color: "var(--muted)" }}>No courses enrolled</span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

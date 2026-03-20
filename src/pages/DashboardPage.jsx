@@ -44,15 +44,34 @@ useEffect(() => {
 
     try {
       if (filter === "teacher") {
-        const params = {};
 
-        if (dateRange?.s) params.start_date = dateRange.s.toISOString();
-        if (dateRange?.e) params.end_date = dateRange.e.toISOString();
-  const res = await API.get("/analytics/student/dashboard", { params });
+const normalizeDate = (d, end = false) => {
+  if (!d) return null;
+
+  const date = new Date(d);
+
+  if (end) {
+    date.setHours(23, 59, 59, 999);
+  } else {
+    date.setHours(0, 0, 0, 0);
+  }
+
+  // ✅ FIX: send LOCAL date, not UTC
+  return date.toLocaleDateString("en-CA"); // YYYY-MM-DD
+};
+
+const params = {};
+if (dateRange?.s) {
+  params.start_date = normalizeDate(dateRange.s, false);
+  params.end_date = normalizeDate(dateRange.e || dateRange.s, true);
+}
+
+const res = await API.get("/analytics/student/dashboard", { params });
   console.log("ATTEMPT RAW:", res.data.attempts[0]);
 
   setStats(res.data.stats);
 
+  
 let attemptsData = res.data.attempts.map(a => ({
   ...a,
   id: a.attempt_id,
@@ -63,10 +82,15 @@ let attemptsData = res.data.attempts.map(a => ({
 }));
 
 // 🔥 HARD FILTER (frontend truth layer)
-if (dateRange?.s && dateRange?.e) {
+if (dateRange?.s) {
+  const startDate = new Date(dateRange.s).setHours(0, 0, 0, 0);
+  const endDate = dateRange.e 
+    ? new Date(dateRange.e).setHours(23, 59, 59, 999) 
+    : new Date(dateRange.s).setHours(23, 59, 59, 999);
+
   attemptsData = attemptsData.filter(a => {
-    const d = new Date(a.attempt_date);
-    return d >= dateRange.s && d <= dateRange.e;
+    const attemptDate = new Date(a.attempt_date).getTime();
+    return attemptDate >= startDate && attemptDate <= endDate;
   });
 }
 
@@ -74,7 +98,6 @@ setAttempts(attemptsData);
 
 // 🔥 compute subject averages from attempts
 const subjectMap = {};
-
 attemptsData.forEach(a => {
   if (!subjectMap[a.subject]) {
     subjectMap[a.subject] = { total: 0, count: 0 };
@@ -83,29 +106,37 @@ attemptsData.forEach(a => {
   subjectMap[a.subject].count += 1;
 });
 
-const computedSubjects = Object.entries(subjectMap).map(([subject, data]) => ({
-  name: subject,
-  subject,
+const computedSubjects = Object.entries(subjectMap).map(([name, data]) => ({
+  name,
+  subject: name,
   score: Math.round(data.total / data.count),
   tests: data.count,
-  color: getColor(subject)
+  color: getColor(name)
 }));
 
 setSubjects(computedSubjects);
 
-let trendData = res.data.trend;
+let trendData = res.data.trend || [];
 
-if (dateRange?.s && dateRange?.e) {
+if (dateRange?.s) {
+  const sTime = new Date(dateRange.s).setHours(0, 0, 0, 0);
+  const eTime = dateRange.e 
+    ? new Date(dateRange.e).setHours(23, 59, 59, 999) 
+    : new Date(dateRange.s).setHours(23, 59, 59, 999);
+
   trendData = trendData.filter(t => {
-    const d = new Date(t.submitted_at);
-    return d >= dateRange.s && d <= dateRange.e;
+    const d = new Date(t.submitted_at).getTime();
+    return d >= sTime && d <= eTime;
   });
 }
 
 setTrend(trendData.map(t => ({
   score: t.total_score,
   avg: t.total_score,
-  month: new Date(t.submitted_at).toLocaleDateString("en-US", { month: "short" })
+  month: new Date(t.submitted_at).toLocaleDateString("en-US", { 
+    month: "short", 
+    day: "numeric" 
+  })
 })));
 
 }
@@ -161,29 +192,72 @@ const courseOptions = courses.map(c => ({
 
 const computedStats = useMemo(() => {
   if (!attempts.length) {
-    return {
-      tests_taken: 0,
-      avg_score: 0,
-      best_score: 0
-    };
+    return { tests_taken: 0, avg_score: 0, best_score: 0, streak: 0 };
   }
 
+
+
   const scores = attempts.map(a => a.score || 0);
+
+  // Get unique attempt dates (YYYY-MM-DD), sorted descending
+  const uniqueDays = [...new Set(
+    attempts.map(a => new Date(a.attempt_date).toLocaleDateString("en-CA"))
+  )].sort((a, b) => b.localeCompare(a));
+
+  // Count consecutive days from today or the most recent attempt day
+  let streak = 0;
+  let cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
+
+  for (const day of uniqueDays) {
+    const cursorStr = cursor.toLocaleDateString("en-CA");
+
+    if (day === cursorStr) {
+      streak++;
+      cursor.setDate(cursor.getDate() - 1); // step back one day
+    } else if (day < cursorStr) {
+      // Missed a day — allow one gap if streak hasn't started yet
+      // (i.e. student did something yesterday but not today)
+      if (streak === 0) {
+        // Start counting from yesterday instead
+        cursor.setDate(cursor.getDate() - 1);
+        if (day === cursor.toLocaleDateString("en-CA")) {
+          streak++;
+          cursor.setDate(cursor.getDate() - 1);
+        } else {
+          break;
+        }
+      } else {
+        break; // gap in streak
+      }
+    }
+  }
+
+const oneWeekAgo = new Date();
+oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+oneWeekAgo.setHours(0, 0, 0, 0);
+
+const testsThisWeek = attempts.filter(a => 
+  new Date(a.attempt_date).getTime() >= oneWeekAgo.getTime()
+).length;
 
   return {
     tests_taken: attempts.length,
     avg_score: (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2),
-    best_score: Math.max(...scores)
+    best_score: Math.max(...scores),
+    streak,
+    tests_this_week: testsThisWeek
+    
   };
 }, [attempts]);
 
   // 3. Dynamic Stats Calculation
 
 const statCards = [
-  { l: "Tests Taken", v: computedStats.tests_taken, n: "book", note: "+3 this week" },
-  { l: "Avg Score", v: `${computedStats.avg_score}%`, n: "target", note: "Filtered Result" },
-  { l: "Best Score", v: `${computedStats.best_score}%`, n: "trophy", note: "Top Performance" },
-  { l: "Streak", v: "7 days", n: "bolt", note: "Keep going!" }
+  { l: "Tests Taken",  v: computedStats.tests_taken,  n: "book",  note: computedStats.tests_this_week > 0  ? `+${computedStats.tests_this_week} this week`  : "None this week" },
+  { l: "Avg Score",   v: `${computedStats.avg_score}%`, n: "target", note: "Filtered Result" },
+  { l: "Best Score",  v: `${computedStats.best_score}%`, n: "trophy", note: "Top Performance" },
+  { l: "Streak",      v: `${computedStats.streak} day${computedStats.streak !== 1 ? "s" : ""}`, n: "bolt", note: computedStats.streak > 0 ? "Keep going!" : "Start today!" }
 ];
     
   const formattedTrend = trend;
@@ -230,6 +304,7 @@ const openAttempt = async (a) => {
             </button>
             {showCal && (
                   <CalDrop
+                  currentRange={dateRange}
                     onSelect={(r) => {
                       setDateRange(r);
                       setShowCal(false); // 👈 important
@@ -274,7 +349,7 @@ const openAttempt = async (a) => {
       {/* Overview - Now Dynamic */}
       <div style={card({ padding: 16 })}>
         <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 8, textAlign: "center" }}>Subject Overview</div>
-        <RadialChart subjects={subjects} avgScore={avgScore} />
+        <RadialChart subjects={subjects} avgScore={computedStats.avg_score} />
         <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: 8 }}>
           {subjects.map((s, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11 }}>

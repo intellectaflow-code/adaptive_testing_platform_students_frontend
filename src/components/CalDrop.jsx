@@ -1,26 +1,37 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Icon from "./Icon";
 import { card } from "../utils/styles";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-export default function CalDrop({ onSelect, onClose }) {
-  const [mo, setMo] = useState(new Date(2025, 0));
-  const [rng, setRng] = useState({ s: null, e: null });
+export default function CalDrop({ onSelect, onClose, currentRange }) {
+  const [mo, setMo] = useState(currentRange?.s ? new Date(currentRange.s) : new Date());
+  const [rng, setRng] = useState({ s: currentRange?.s || null, e: currentRange?.e || null });
+
+  useEffect(() => {
+    setRng({ s: currentRange?.s || null, e: currentRange?.e || null });
+    if (currentRange?.s) setMo(new Date(currentRange.s));
+  }, [currentRange]);
 
   const fd = new Date(mo.getFullYear(), mo.getMonth(), 1).getDay();
   const ld = new Date(mo.getFullYear(), mo.getMonth() + 1, 0).getDate();
   const cells = [...Array(fd).fill(null), ...Array.from({ length: ld }, (_, i) => i + 1)];
 
-  const pick = (d) => {
-    if (!d) return;
-    const dt = new Date(mo.getFullYear(), mo.getMonth(), d);
-    if (!rng.s || (rng.s && rng.e)) { setRng({ s: dt, e: null }); return; }
+const pick = (d) => {
+  if (!d) return;
+  const dt = new Date(mo.getFullYear(), mo.getMonth(), d);
+
+  let newRng;
+  if (!rng.s || (rng.s && rng.e)) {
+    newRng = { s: dt, e: null };
+  } else {
     const s = dt < rng.s ? dt : rng.s;
     const e = dt < rng.s ? rng.s : dt;
-    setRng({ s, e });
-    onSelect({ s, e });
-  };
+    newRng = { s, e };
+  }
+
+  setRng(newRng); // ✅ ONLY this
+};
 
   const inR = (d) => {
     if (!d || !rng.s) return false;
@@ -47,6 +58,7 @@ export default function CalDrop({ onSelect, onClose }) {
           <span key={i} style={{ textAlign: "center", fontSize: 10, color: "var(--muted)", padding: "2px 0" }}>{d}</span>
         ))}
       </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2 }}>
         {cells.map((d, i) => (
           <button
@@ -69,10 +81,34 @@ export default function CalDrop({ onSelect, onClose }) {
       </div>
 
       <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-        <button onClick={() => { setRng({ s: null, e: null }); onSelect(null); }} style={{ flex: 1, padding: "7px", background: "var(--surface2)", border: "1px solid var(--border2)", borderRadius: 8, color: "var(--muted)", cursor: "pointer", fontSize: 12 }}>
+        <button
+          onClick={() => {
+            const cleared = { s: null, e: null };
+            setRng(cleared);
+            onSelect(null);
+          }}
+          style={{ flex: 1, padding: "7px", background: "var(--surface2)", border: "1px solid var(--border2)", borderRadius: 8, color: "var(--muted)", cursor: "pointer", fontSize: 12 }}
+        >
           Clear
         </button>
-        <button onClick={onClose} style={{ flex: 1, padding: "7px", background: "var(--amber)", border: "none", borderRadius: 8, color: "#0C0E14", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
+
+        <button
+          onClick={() => {
+            onSelect(rng);
+            onClose();
+          }}
+          style={{
+            flex: 1,
+            padding: "7px",
+            background: "var(--amber)",
+            border: "none",
+            borderRadius: 8,
+            color: "#0C0E14",
+            cursor: "pointer",
+            fontSize: 12,
+            fontWeight: 700
+          }}
+        >
           Apply
         </button>
       </div>

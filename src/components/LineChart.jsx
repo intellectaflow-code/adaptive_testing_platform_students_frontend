@@ -117,18 +117,22 @@ export default function LineChart({ data, h = 160 }) {
           ))}
 
           {/* X labels */}
-          {data.map((d, i) => (
-            <text
-              key={i}
-              x={x(i)}
-              y={H - PAD.b + 14}
-              fontSize="9"
-              fill="var(--muted)"
-              textAnchor="middle"
-            >
-              {d.month}
-            </text>
-          ))}
+          {data.map((d, i) => {
+            const step = Math.ceil(data.length / 5);
+            if (i % step !== 0 && i !== data.length - 1) return null;
+            return (
+              <text
+                key={i}
+                x={x(i)}
+                y={H - PAD.b + 14}
+                fontSize="9"
+                fill="var(--muted)"
+                textAnchor="middle"
+              >
+                {d.month}
+              </text>
+            );
+          })}
 
           {/* Area */}
           <path d={area1} fill="url(#lg1)" />

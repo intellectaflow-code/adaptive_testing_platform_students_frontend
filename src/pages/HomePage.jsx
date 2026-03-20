@@ -95,6 +95,9 @@ const startAI = async () => {
     setPage("quiz");
   };
   console.log("Teacher tests state:", teacherTests);
+
+
+  
   return (
       <>
     {loading && <Loader />}
@@ -232,32 +235,122 @@ const startAI = async () => {
               : "upcoming";
 
             return (
-              <div key={t.id} style={{ background: "var(--bg)", border: "1px solid var(--border2)", borderRadius: "var(--radius)", padding: "13px 15px" }}>
-
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 7 }}>
+              <div
+                key={t.id}
+                style={{
+                  background: "var(--bg)",
+                  border: "1px solid var(--border2)",
+                  borderRadius: "var(--radius)",
+                  padding: "13px 15px"
+                }}
+              >
+                {/* Title + Status */}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    marginBottom: 6
+                  }}
+                >
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)" }}>
                       {t.title}
                     </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        marginTop: 2
+                      }}
+                    >
+                    <span
+                      style={{ fontSize: 11, color: "var(--muted)", display: "flex", alignItems: "center", gap: 1, marginLeft: -1}}>
+                        <Icon n="book-open" s={10} /> {t.course_name}
+                      </span>
+
+                      <span
+                        style={{
+                          padding: "2px 7px",
+                          fontSize: 10,
+                          borderRadius: 999,
+                          fontWeight: 500,
+                          color: "var(--blue)",
+                          background: "rgba(96,165,250,0.1)"
+                        }}
+                      >
+                        {t.course_code}
+                      </span>
+                    </div>
                   </div>
 
-                  <span style={status === "live" ? pill("var(--green)", "rgba(74,222,128,0.1)") : pill("var(--amber)", "rgba(240,165,0,0.1)")}>
-                    {status === "live" ? "● Live" : "Upcoming"}
+                  {/* Status */}
+                  <span
+                    style={{
+                      fontSize: 10,
+                      padding: "2px 8px",
+                      borderRadius: 6,
+                      fontWeight: 500,
+                      color: status === "live" ? "var(--green)" : "var(--amber)",
+                      background:
+                        status === "live"
+                          ? "rgba(74,222,128,0.12)"
+                          : "rgba(240,165,0,0.12)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 5,
+                        height: 5,
+                        borderRadius: "50%",
+                        background:
+                          status === "live" ? "var(--green)" : "var(--amber)"
+                      }}
+                    />
+                    {status === "live" ? "Live" : "Upcoming"}
                   </span>
-
                 </div>
 
-                <div style={{ display: "flex", gap: 12, fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>
-                  <span><Icon n="clock" s={11} /> {t.duration_minutes} min</span>
-                  <span><Icon n="book" s={11} /> {t.question_count} Qs</span>
+                {/* Meta */}
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 12,
+                    fontSize: 11,
+                    color: "var(--muted)",
+                    marginBottom: 8
+                  }}
+                >
+                  <span>
+                    <Icon n="clock" s={11} /> {t.duration_minutes} min
+                  </span>
+                  <span>
+                    <Icon n="book" s={11} /> {t.question_count} Qs
+                  </span>
                 </div>
 
+                {/* Button */}
                 {status === "live" && (
                   <button
                     onClick={() => startTeacher(t)}
-                    style={{ width: "100%", padding: "10px", background: "var(--amber)", border: "none", borderRadius: "var(--radius)", color: "#0C0E14", fontSize: 13, fontWeight: 700, cursor: "pointer", marginTop: 2 }}
-                      onMouseEnter={(e) => (e.currentTarget.style.opacity = ".85")}
-                      onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}>
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      background: "var(--amber)",
+                      border: "none",
+                      borderRadius: "var(--radius)",
+                      color: "#0C0E14",
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      marginTop: 2
+                    }}
+                  >
                     ▶ Start Test
                   </button>
                 )}

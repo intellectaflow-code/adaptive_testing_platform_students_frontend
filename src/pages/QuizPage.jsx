@@ -46,10 +46,31 @@ export default function QuizPage({ config, setPage, setResults }) {
             question_text: q.question_text,
             options: q.options // Contains [{id, option_text}, ...]
           }));
-        } else {
-          // For AI quizzes, questions are passed via config.questions
-          questionsData = config.questions || [];
-        }
+          } else {
+            // Normalize AI quiz format to match teacher format
+            questionsData = (config.questions || []).map((q, qi) => {
+              const rawOptions = q.options || q.choices || [];
+
+              return {
+                question_id: q.question_id || q.id || qi,
+                question_text: q.question_text || q.question || "",
+                options: rawOptions.map((opt, oi) => {
+                  // Handle both string + object formats
+                  if (typeof opt === "string") {
+                    return {
+                      id: oi,
+                      option_text: opt
+                    };
+                  }
+
+                  return {
+                    id: opt.id ?? oi,
+                    option_text: opt.option_text || opt.text || ""
+                  };
+                })
+              };
+            });
+          }
 
         setQs(questionsData);
       } catch (err) {
@@ -98,6 +119,7 @@ export default function QuizPage({ config, setPage, setResults }) {
 
   // 2. Prepare the payload matching your FastAPI "QuizSubmission" model
   const payload = {
+    attempt_id: config.attempt_id,
     answers: formattedAnswers,
     tab_switches: tabs, // Tracking proctoring violations
     time_spent: spent
@@ -146,10 +168,13 @@ export default function QuizPage({ config, setPage, setResults }) {
     setPage("results");
 
   } catch (err) {
-    console.error("Quiz submit error:", err);
-    alert(err.response?.data?.detail || "Submission failed. Please try again.");
-    setLoading(false);
-  }
+  console.error("FULL ERROR:", err);
+  console.log("BACKEND ERROR:", err.response?.data);
+
+  alert(JSON.stringify(err.response?.data, null, 2)); // 👈 IMPORTANT
+
+  setLoading(false);
+}
 }, [ans, qs, tLeft, tabs, config, setPage, setResults]);
 
   // FULLSCREEN GUARD
