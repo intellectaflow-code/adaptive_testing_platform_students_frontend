@@ -145,21 +145,37 @@ export default function ProfilePage({ student, setPage }) {
         <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 10 }}>
           Enrolled Courses
         </div>
-        {loadingCourses ? (
-          <Loader />
-        ) : (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {courses.length > 0 ? (
-              courses.map((c) => (
-                <span key={c.id} style={{ padding: "6px 12px", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 20, fontSize: 12, color: "var(--body)" }}>
-                  {c.name}
-                </span>
-              ))
-            ) : (
-              <span style={{ fontSize: 12, color: "var(--muted)" }}>No courses enrolled</span>
-            )}
-          </div>
-        )}
+      {loadingCourses ? (
+        <Loader />
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {courses.length > 0 ? (
+            courses.map((c, i) => (
+              <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--amber)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#0C0E14", flexShrink: 0 }}>
+                    {i + 1}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 2 }}>{c.name}</div>
+                    <div style={{ fontSize: 11, color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 }}>
+                      <Icon n="person" s={11} />
+                      {c.teacher_name || c.instructor_name || c.faculty_name || "—"}
+                    </div>
+                  </div>
+                </div>
+                {c.code && (
+                  <span style={{ padding: "3px 8px", background: "var(--surface2)", border: "1px solid var(--border2)", borderRadius: 20, fontSize: 10, color: "var(--muted)", flexShrink: 0 }}>
+                    {c.code}
+                  </span>
+                )}
+              </div>
+            ))
+          ) : (
+            <span style={{ fontSize: 12, color: "var(--muted)" }}>No courses enrolled</span>
+          )}
+        </div>
+      )}
       </div>
     </div>
   );

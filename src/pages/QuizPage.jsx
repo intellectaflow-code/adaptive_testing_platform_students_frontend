@@ -99,82 +99,84 @@ export default function QuizPage({ config, setPage, setResults }) {
     return () => clearInterval(timer.current);
   }, []);
 
-  const doSubmit = useCallback(async () => {
+const doSubmit = useCallback(async () => {
   setLoading(true);
   clearInterval(timer.current);
 
-  // Calculate total seconds spent on the quiz
   const totalDuration = (config.time || config.duration || 15) * 60;
   const spent = totalDuration - tLeft;
-  
-  // 1. Map the answers to the backend format: { question_id, selected_answer (ID) }
+
+  // ── AI quiz: options are plain strings in JSONB, send the text itself ──
+  // ── Teacher quiz: options are DB rows with UUIDs, send the UUID ──
   const formattedAnswers = qs.map((q, i) => {
     const selectedIdx = ans[i];
-    return {
-      question_id: q.question_id,
-      // We look up the actual database ID of the chosen option
-      selected_answer: selectedIdx !== undefined ? q.options[selectedIdx].id : null
-    };
+    let selected_answer = null;
+
+    if (selectedIdx !== undefined) {
+      if (config.type === "ai") {
+        // AI options are stored as plain strings — backend compares string == string
+        selected_answer = q.options[selectedIdx].option_text;
+      } else {
+        // Teacher options have real DB UUIDs
+        selected_answer = String(q.options[selectedIdx].id);
+      }
+    }
+
+    return { question_id: q.question_id, selected_answer };
   });
 
-  // 2. Prepare the payload matching your FastAPI "QuizSubmission" model
-  const payload = {
-    attempt_id: config.attempt_id,
-    answers: formattedAnswers,
-    tab_switches: tabs, // Tracking proctoring violations
-    time_spent: spent
-  };
+  // AI schema (AIQuizSubmit) only accepts attempt_id + answers — no extra fields
+  // Teacher schema accepts tab_switches + time_spent too
+  const payload = config.type === "ai"
+    ? { attempt_id: config.attempt_id, answers: formattedAnswers }
+    : { attempt_id: config.attempt_id, answers: formattedAnswers, tab_switches: tabs, time_spent: spent };
 
   try {
-    // 3. Determine endpoint (AI vs Teacher quiz)
-    const endpoint = config.type === "ai" 
-      ? "/ai-quiz/submit" 
+    const endpoint = config.type === "ai"
+      ? "/ai-quiz/submit"
       : `/quizzes/${config.quiz_id}/submit`;
-    
-    // 4. Submit to backend
+
     const res = await API.post(endpoint, payload);
     const submissionData = res.data;
 
-    // 5. Post-submission data retrieval (Review mode)
     let finalQuestions = [];
-
     if (config.type === "ai") {
       const aiRes = await API.get(`/ai-quiz/${config.attempt_id}/answers`);
       finalQuestions = aiRes.data;
     } else {
-      const attemptId = submissionData.attempt_id;
-
-      const res = await API.get(`/attempts/${attemptId}/answers`);
-      finalQuestions = res.data;
+      const attemptRes = await API.get(`/attempts/${submissionData.attempt_id}/answers`);
+      finalQuestions = attemptRes.data;
     }
 
-    // 6. Set results for the ResultsPage
+    // AI response shape: { correct_answers, total_questions }
+    // Teacher response shape: { score, total_possible, attempt_id }
+    const correctCount = config.type === "ai"
+      ? submissionData.correct_answers
+      : submissionData.score;
+    const totalCount = config.type === "ai"
+      ? submissionData.total_questions
+      : submissionData.total_possible || qs.length;
+
     setResults({
       questions: finalQuestions,
-      correct: submissionData.score, // Verified score from FastAPI logic
-      total: qs.length,
-      score: Math.round((submissionData.score / (submissionData.total_possible || qs.length)) * 100),
+      correct: correctCount,
+      total: totalCount,
+      score: Math.round((correctCount / totalCount) * 100),
       timeSpent: spent,
-      tabs: tabs,
-      config: config
+      tabs,
+      config,
     });
 
-    // Clean up fullscreen proctoring
-    if (document.fullscreenElement) {
-      document.exitFullscreen?.().catch(() => {});
-    }
-    
+    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
     setLoading(false);
     setPage("results");
 
   } catch (err) {
-  console.error("FULL ERROR:", err);
-  console.log("BACKEND ERROR:", err.response?.data);
-
-  alert(JSON.stringify(err.response?.data, null, 2)); // 👈 IMPORTANT
-
-  setLoading(false);
-}
+    console.error("Submit failed:", err.response?.data || err);
+    setResults({ questions: [], correct: 0, total: qs.length, timeSpent: spent, tabs, config });
+    setLoading(false);
+    setPage("results");
+  }
 }, [ans, qs, tLeft, tabs, config, setPage, setResults]);
 
   // FULLSCREEN GUARD

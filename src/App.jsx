@@ -54,6 +54,20 @@ const handleLoginSuccess = async (basicData) => {
   }
 };
 
+
+const [readIds, setReadIds] = useState(() => {
+  const saved = localStorage.getItem("read_announcements");
+  return saved ? JSON.parse(saved) : [];
+});
+
+const markAllRead = (ids) => {
+  localStorage.setItem("read_announcements", JSON.stringify(ids));
+  setReadIds(ids);
+};
+
+const [announcements, setAnnouncements] = useState([]);
+const unreadCount = announcements.filter(a => !readIds.includes(a.id)).length;
+
 const [student, setStudent] = useState(() => {
   const saved = localStorage.getItem("user");
   return saved ? JSON.parse(saved) : null; // No more MOCK_STUDENT
@@ -118,7 +132,7 @@ const handleLogout = () => {
                 transition: "margin-left .25s ease",
               }}
             >
-              <Topbar page={page} theme={theme} setTheme={setTheme} setPage={setPage} />
+             <Topbar page={page} theme={theme} setTheme={setTheme} setPage={setPage} unreadCount={unreadCount} />
               <main style={{ flex: 1, overflowY: "auto" }}>
                 {/* ... existing page logic (page === "home", etc) ... */}
                 {page === "profile" && <ProfilePage student={student} setPage={setPage} />}
@@ -127,7 +141,7 @@ const handleLogout = () => {
                 {page === "results"        && results && <ResultsPage results={results} setPage={setPage} />}
                 {page === "attempt-result" && attemptResult && <ResultsPage results={attemptResult} setPage={setPage} fromDashboard />}
                 {page === "dashboard"      && <DashboardPage setPage={setPage} setAttemptResult={setAttemptResult} />}
-                {page === "announcements"  && <AnnouncementsPage />}
+                {page === "announcements" && (<AnnouncementsPage announcements={announcements} setAnnouncements={setAnnouncements} readIds={readIds} markAllRead={markAllRead}/>)}
                 {page === "settings"       && <SettingsPage theme={theme} setTheme={setTheme} />}
               </main>
             </div>

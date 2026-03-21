@@ -9,7 +9,7 @@ const PAGE_TITLES = {
   editprofile: "Edit Profile",
 };
 
-export default function Topbar({ page, theme, setTheme, setPage }) {
+export default function Topbar({ page, theme, setTheme, setPage, unreadCount = 0 }) {
   return (
     <div
       style={{
@@ -65,18 +65,20 @@ export default function Topbar({ page, theme, setTheme, setPage }) {
         }}
       >
         <Icon n="bell" s={15} />
-        <span
-          style={{
-            position: "absolute",
-            top: 6,
-            right: 6,
-            width: 5,
-            height: 5,
-            borderRadius: "50%",
-            background: "var(--amber)",
-            border: "1.5px solid var(--surface)"
-          }}
-        />
+        {unreadCount > 0 && (
+          <span
+            style={{
+              position: "absolute",
+              top: 6,
+              right: 6,
+              width: 5,
+              height: 5,
+              borderRadius: "50%",
+              background: "var(--amber)",
+              border: "1.5px solid var(--surface)"
+            }}
+          />
+        )}
       </button>
 
         {/* Theme toggle */}

@@ -61,36 +61,40 @@ export default function SignupPage({ setAuthPage, onLogin }) {
   const [showPw, setShowPw] = useState(false);
   const [showConfirmPw, setShowConfirmPw] = useState(false);
 
-  const submit = async () => {
-    if (!form.name || !form.usn || !form.email || !form.branch || !form.semester || !form.password) {
-      setErr("Please fill all required fields");
-      return;
-    }
+const submit = async () => {
+  if (!form.name || !form.usn || !form.email || !form.branch || !form.semester || !form.password) {
+    setErr("Please fill all required fields");
+    return;
+  }
 
-    if (form.password !== form.confirm) {
-      setErr("Passwords do not match");
-      return;
-    }
+  if (form.password !== form.confirm) {
+    setErr("Passwords do not match");
+    return;
+  }
 
-    if (form.password.length < 8) {
-      setErr("Password must be at least 8 characters");
-      return;
-    }
+  const strongPassword = (pw) => {
+    return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()\,.\?\":{}|<>]).{8,}$/.test(pw);
+  };
 
-    setErr("");
-    setLoading(true);
+  if (!strongPassword(form.password)) {
+    setErr("Password must be at least 8 characters long and include an uppercase letter, a lowercase letter, a number, and a special character.");
+    return;
+  }
 
-    try {
-      const res = await API.post("/auth/register", {
-        email: form.email,
-        password: form.password,
-        full_name: form.name,
-        role: "student",
-        branch: form.branch,
-        usn: form.usn,
-        semester: form.semester,
-        section: form.section
-      });
+  setErr("");
+  setLoading(true);
+
+  try {
+    const res = await API.post("/auth/register", {
+      email: form.email,
+      password: form.password,
+      full_name: form.name,
+      role: "student",
+      branch: form.branch,
+      usn: form.usn,
+      semester: Number(form.semester), // ✅ correct now
+      section: form.section
+    });
 
       const data = res.data;
 
@@ -113,11 +117,19 @@ export default function SignupPage({ setAuthPage, onLogin }) {
       onLogin(registeredUser); 
 
     } catch (error) {
-      setErr(error.response?.data?.detail || "Registration failed");
-    }
+      console.log(error.response?.data); 
+      const detail = error.response?.data?.detail;
+      const errMsg =
+        Array.isArray(detail)
+          ? detail.map((d) => d.msg).join(" ") // joins all validation messages
+          : detail || "Registration failed";
+      setErr(errMsg);
+}
 
     setLoading(false);
   };
+
+
 
   const inputStyle = {
     width: "100%",

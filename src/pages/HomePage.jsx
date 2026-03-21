@@ -6,7 +6,7 @@ import { card, scoreColor, pill } from "../utils/styles";
 import API from "../api/api";
 import Loader from "../components/Loader";
 
-const SUBJECTS = ["Computer Science", "Mathematics", "Physics", "Chemistry", "Electronics", "Data Science"];
+const SUBJECTS = ["Computer Science", "Mathematics", "Physics", "Chemistry", "Electronics", "Data Science","Others"];
 
 export default function HomePage({ setPage, setQuizConfig }) {
   const [aiForm, setAiForm] = useState({ subject: "", topic: "", questions: 10, time: 15, difficulty: "medium" });
