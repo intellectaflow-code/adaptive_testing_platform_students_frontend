@@ -1,24 +1,16 @@
-import { useState, useEffect, useMemo } from "react";  // ← add useMemo
+import { useState, useEffect, useMemo } from "react";
 import Icon from "../components/Icon";
 import { card, initials } from "../utils/styles";
-import Loader from "../components/Loader";
+import Loader from "../components/loader";
 import API from "../api/api";
-
-const BADGES = [
-  { e: "⚡", label: "Speed Demon",  desc: "5 tests under 10 min",  earned: true  },
-  { e: "🎯", label: "Sharpshooter", desc: "90%+ accuracy × 3",    earned: true  },
-  { e: "🔥", label: "On Fire",      desc: "7-day streak",          earned: true  },
-  { e: "🧠", label: "AI Master",    desc: "10 AI tests done",      earned: false },
-  { e: "📚", label: "Bookworm",     desc: "All subjects tried",    earned: false },
-  { e: "🏆", label: "Champion",     desc: "Rank #1 in class",      earned: false },
-];
-
+ 
+ 
 export default function ProfilePage({ student, setPage }) {
   const [courses, setCourses]               = useState([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
-  const [attempts, setAttempts]             = useState([]);   // ← same source as Dashboard
+  const [attempts, setAttempts]             = useState([]);
   const [loadingStats, setLoadingStats]     = useState(true);
-
+ 
   useEffect(() => {
     const fetchCourses = async () => {
       try {
@@ -30,21 +22,18 @@ export default function ProfilePage({ student, setPage }) {
         setLoadingCourses(false);
       }
     };
-
+ 
     const fetchStats = async () => {
       try {
         const res = await API.get("/analytics/student/dashboard");
-
-        // ── mirror the exact same mapping Dashboard does ──
         const attemptsData = res.data.attempts.map(a => ({
           ...a,
           id:           a.attempt_id,
           title:        a.test_title,
           attempt_date: a.attempt_date,
-          score:        a.accuracy,       // ← accuracy %, same as Dashboard
+          score:        a.accuracy,
           subject:      a.subject,
         }));
-
         setAttempts(attemptsData);
       } catch (err) {
         console.error("Failed to load stats", err);
@@ -52,27 +41,26 @@ export default function ProfilePage({ student, setPage }) {
         setLoadingStats(false);
       }
     };
-
+ 
     fetchCourses();
     fetchStats();
   }, []);
-
-  // ── exact same computedStats logic as DashboardPage ──
+ 
   const computedStats = useMemo(() => {
     if (!attempts.length) {
       return { tests_taken: 0, avg_score: "0.00", best_score: 0, streak: 0 };
     }
-
+ 
     const scores = attempts.map(a => a.score || 0);
-
+ 
     const uniqueDays = [...new Set(
       attempts.map(a => new Date(a.attempt_date).toLocaleDateString("en-CA"))
     )].sort((a, b) => b.localeCompare(a));
-
+ 
     let streak = 0;
     let cursor = new Date();
     cursor.setHours(0, 0, 0, 0);
-
+ 
     for (const day of uniqueDays) {
       const cursorStr = cursor.toLocaleDateString("en-CA");
       if (day === cursorStr) {
@@ -88,7 +76,7 @@ export default function ProfilePage({ student, setPage }) {
         } else break;
       }
     }
-
+ 
     return {
       tests_taken: attempts.length,
       avg_score:   (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2),
@@ -96,7 +84,7 @@ export default function ProfilePage({ student, setPage }) {
       streak,
     };
   }, [attempts]);
-
+ 
   const statCards = loadingStats
     ? [["…", "Tests"], ["…", "Avg Score"], ["…", "Best Score"], ["…", "Streak"]]
     : [
@@ -105,7 +93,10 @@ export default function ProfilePage({ student, setPage }) {
         [`${computedStats.best_score}%`,       "Best Score"],
         [`${computedStats.streak}d`,           "Streak"    ],
       ];
-
+ 
+  // ── Full-page loader while both fetches are still in-flight ──
+  if (loadingStats && loadingCourses) return <Loader variant="profile" />;
+ 
   return (
     <div style={{ padding: "24px 28px", maxWidth: 760, margin: "0 auto" }}>
       {/* ── Profile header ── */}
@@ -129,7 +120,7 @@ export default function ProfilePage({ student, setPage }) {
           </button>
         </div>
       </div>
-
+ 
       {/* ── Dynamic stats row ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 9, marginBottom: 12 }}>
         {statCards.map(([v, l], i) => (
@@ -139,43 +130,48 @@ export default function ProfilePage({ student, setPage }) {
           </div>
         ))}
       </div>
-
+ 
       {/* ── Enrolled courses ── */}
       <div style={card({ padding: 18, marginBottom: 12 })}>
         <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 10 }}>
           Enrolled Courses
         </div>
-      {loadingCourses ? (
-        <Loader />
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {courses.length > 0 ? (
-            courses.map((c, i) => (
-              <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--amber)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#0C0E14", flexShrink: 0 }}>
-                    {i + 1}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 2 }}>{c.name}</div>
-                    <div style={{ fontSize: 11, color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 }}>
-                      <Icon n="person" s={11} />
-                      {c.teacher_name || c.instructor_name || c.faculty_name || "—"}
+        {loadingCourses ? (
+          // Skeleton rows — avoids a jarring full-page overlay for a small section
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {[1, 2, 3].map(i => (
+              <div key={i} style={{ height: 52, background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius)", opacity: 0.5 }} />
+            ))}
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {courses.length > 0 ? (
+              courses.map((c, i) => (
+                <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--amber)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#0C0E14", flexShrink: 0 }}>
+                      {i + 1}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 2 }}>{c.name}</div>
+                      <div style={{ fontSize: 11, color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 }}>
+                        <Icon n="person" s={11} />
+                        {c.teacher_name || c.instructor_name || c.faculty_name || "—"}
+                      </div>
                     </div>
                   </div>
+                  {c.code && (
+                    <span style={{ padding: "3px 8px", background: "var(--surface2)", border: "1px solid var(--border2)", borderRadius: 20, fontSize: 10, color: "var(--muted)", flexShrink: 0 }}>
+                      {c.code}
+                    </span>
+                  )}
                 </div>
-                {c.code && (
-                  <span style={{ padding: "3px 8px", background: "var(--surface2)", border: "1px solid var(--border2)", borderRadius: 20, fontSize: 10, color: "var(--muted)", flexShrink: 0 }}>
-                    {c.code}
-                  </span>
-                )}
-              </div>
-            ))
-          ) : (
-            <span style={{ fontSize: 12, color: "var(--muted)" }}>No courses enrolled</span>
-          )}
-        </div>
-      )}
+              ))
+            ) : (
+              <span style={{ fontSize: 12, color: "var(--muted)" }}>No courses enrolled</span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -2,40 +2,40 @@ import { useState, useEffect } from "react";
 import Icon from "../components/Icon";
 import { card, pill } from "../utils/styles";
 import API from "../api/api";
-import Loader from "../components/Loader";
-
+import Loader from "../components/loader";
+ 
 const prCol = (p) => p === "high" ? "var(--red)" : p === "medium" ? "var(--amber)" : "var(--muted)";
 const prBg  = (p) => p === "high" ? "rgba(240,96,96,0.08)" : p === "medium" ? "rgba(240,165,0,0.08)" : "rgba(90,95,122,0.1)";
-
+ 
 export default function AnnouncementsPage({ announcements, setAnnouncements, readIds, markAllRead }) {
   const [open, setOpen] = useState(null);
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(!announcements.length);
-
-const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-
-const filtered = filter === "new"
-  ? announcements.filter(a => new Date(a.created_at) >= oneWeekAgo)
-  : announcements;
-
+ 
+  const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+ 
+  const filtered = filter === "new"
+    ? announcements.filter(a => new Date(a.created_at) >= oneWeekAgo)
+    : announcements;
+ 
   useEffect(() => {
     const fetchAnnouncements = async () => {
       try {
         const res = await API.get("/announcements");
         setAnnouncements(res.data);
-        markAllRead(res.data.map(a => a.id)); // mark all read on visit
+        markAllRead(res.data.map(a => a.id));
       } catch (err) {
         console.error("Failed to fetch announcements", err);
       } finally {
         setLoading(false);
       }
     };
-
+ 
     fetchAnnouncements();
   }, []);
-
-
-if (loading) return <Loader />;
+ 
+  if (loading) return <Loader variant="announcements" />;
+ 
   return (
     <div style={{ padding: "24px 28px", maxWidth: 800, margin: "0 auto" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22, flexWrap: "wrap", gap: 10 }}>
@@ -52,7 +52,7 @@ if (loading) return <Loader />;
           ))}
         </div>
       </div>
-
+ 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {filtered.map((a) => (
           <div key={a.id}

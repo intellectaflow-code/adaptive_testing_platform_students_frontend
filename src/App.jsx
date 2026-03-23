@@ -24,7 +24,7 @@ import { getThemeTokens } from "./utils/theme";
 export default function App() {
   const [theme, setTheme] = useState("dark");
   const [authPage, setAuthPage] = useState("login");
-  const [loggedIn, setLoggedIn] = useState(false);
+  const [loggedIn, setLoggedIn] = useState(() => !!localStorage.getItem("access_token"));
   const [page, setPage] = useState("home");
   const [quizConfig, setQuizConfig] = useState(null);
   const [results, setResults] = useState(null);
@@ -39,18 +39,15 @@ export default function App() {
 // App.jsx
 const handleLoginSuccess = async (basicData) => {
   setLoggedIn(true);
-  
   try {
-    // Fetch the actual full profile from your backend
-    const res = await API.get("/auth/me"); // Adjust this to your profile endpoint
+    const res = await API.get("/auth/me");
     const fullProfile = res.data;
-    
     setStudent(fullProfile);
-    localStorage.setItem("user_data", JSON.stringify(fullProfile));
+    localStorage.setItem("user_data", JSON.stringify(fullProfile)); // ← consistent key
   } catch (err) {
     console.error("Failed to fetch profile", err);
-    // Fallback to whatever we have if profile fetch fails
     setStudent(basicData);
+    localStorage.setItem("user_data", JSON.stringify(basicData));   // ← also write on fallback
   }
 };
 
@@ -69,8 +66,8 @@ const [announcements, setAnnouncements] = useState([]);
 const unreadCount = announcements.filter(a => !readIds.includes(a.id)).length;
 
 const [student, setStudent] = useState(() => {
-  const saved = localStorage.getItem("user");
-  return saved ? JSON.parse(saved) : null; // No more MOCK_STUDENT
+  const saved = localStorage.getItem("user_data");  // ← matches what login writes
+  return saved ? JSON.parse(saved) : null;
 });
 
 const handleLogout = () => {

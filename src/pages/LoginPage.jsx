@@ -2,7 +2,6 @@ import { useState } from "react";
 import Icon from "../components/Icon";
 import { card } from "../utils/styles";
 import API from "../api/api";
-import Loader from "../components/Loader";
 
 export default function LoginPage({ setAuthPage, onLogin }) {
   const [form, setForm] = useState({ email: "", password: "" });

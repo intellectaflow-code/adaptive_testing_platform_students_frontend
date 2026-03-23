@@ -1,13 +1,12 @@
 import { useState, useEffect } from "react";
 import Icon from "../components/Icon";
 import Select from "../components/Select";
-import { MOCK_QUESTIONS, LIVE_TESTS, PERF } from "../data/mockData";
 import { card, scoreColor, pill } from "../utils/styles";
 import API from "../api/api";
-import Loader from "../components/Loader";
-
+import Loader from "../components/loader";
+ 
 const SUBJECTS = ["Computer Science", "Mathematics", "Physics", "Chemistry", "Electronics", "Data Science","Others"];
-
+ 
 export default function HomePage({ setPage, setQuizConfig }) {
   const [aiForm, setAiForm] = useState({ subject: "", topic: "", questions: 10, time: 15, difficulty: "medium" });
   const [errs, setErrs] = useState({});
@@ -15,9 +14,9 @@ export default function HomePage({ setPage, setQuizConfig }) {
   const [user, setUser] = useState(null);
   const [teacherTests, setTeacherTests] = useState([]);
   const [testsLoading, setTestsLoading] = useState(true);
-
+ 
 useEffect(() => {
-
+ 
   const fetchUser = async () => {
     try {
       const res = await API.get("/profiles/me");
@@ -26,7 +25,7 @@ useEffect(() => {
       console.error("User fetch failed", err);
     }
   };
-
+ 
   const fetchQuizzes = async () => {
     try {
       const res = await API.get("/quizzes?published_only=true");
@@ -38,34 +37,34 @@ useEffect(() => {
       setTestsLoading(false);
     }
   };
-
+ 
   fetchUser();
   fetchQuizzes();
-
+ 
 }, []);
-
+ 
 const startAI = async () => {
   const e = {};
-
+ 
   if (!aiForm.subject) e.subject = "Required";
   if (!aiForm.topic.trim()) e.topic = "Required";
-
+ 
   if (Object.keys(e).length) {
     setErrs(e);
     return;
   }
-
+ 
   try {
     setLoading(true);
-
+ 
     const res = await API.post("/ai-quiz/start", {
       topic: aiForm.topic,
       difficulty: aiForm.difficulty,
       total_questions: aiForm.questions
     });
-
+ 
     const { attempt_id, questions } = res.data;
-
+ 
     setQuizConfig({
       type: "ai",
       attempt_id: attempt_id,
@@ -74,16 +73,16 @@ const startAI = async () => {
       duration: aiForm.time,
       questions: questions
     });
-
+ 
     setPage("quiz");
-
+ 
   } catch (err) {
     console.error("AI Quiz error:", err);
     alert("Failed to generate AI quiz");
     setLoading(false);
   }
 };
-
+ 
   const startTeacher = (t) => {
     setQuizConfig({
       type: "teacher",
@@ -91,22 +90,22 @@ const startAI = async () => {
       title: t.title,
       duration: t.duration_minutes
     });
-
+ 
     setPage("quiz");
   };
   console.log("Teacher tests state:", teacherTests);
-
-
+ 
+ 
   
   return (
       <>
-    {loading && <Loader />}
+    {loading && <Loader variant="test" />}
     <div style={{ padding: "24px 28px", maxWidth: 1060, margin: "0 auto" }}>
       <div style={{ marginBottom: 22 }}>
         <h1 style={{ fontSize: 18, fontWeight: 700, color: "var(--white)", marginBottom: 3 }}>Tests</h1>
         <p style={{ color: "var(--muted)", fontSize: 13 }}>Take an AI-generated test or join a live teacher test</p>
       </div>
-
+ 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
         {/* AI Test Card */}
         <div style={card({ padding: 22 })}>
@@ -119,7 +118,7 @@ const startAI = async () => {
               <div style={{ fontSize: 11, color: "var(--muted)" }}>Personalised question set</div>
             </div>
           </div>
-
+ 
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div>
               <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 5 }}>Subject</label>
@@ -165,11 +164,11 @@ const startAI = async () => {
             </button>
           </div>
         </div>
-
+ 
         {/* Teacher Tests */}
         <div style={card({
           padding: 22,
-          height: 420,              // 👈 FIXED HEIGHT (adjust 480–600)
+          height: 420,
           display: "flex",
           flexDirection: "column"
         })}>
@@ -198,11 +197,11 @@ const startAI = async () => {
               </div>
             </div>
           </div>
-
+ 
           {/* Scrollable list */}
           <div
             style={{
-              flex: 1,                 // 👈 takes remaining space
+              flex: 1,
               overflowY: "auto",
               display: "flex",
               flexDirection: "column",
@@ -220,11 +219,11 @@ const startAI = async () => {
             </div>
           ) : (
             teacherTests.map((t) => {
-
+ 
             const now = new Date();
             const start = t.start_time ? new Date(t.start_time) : null;
             const end = t.end_time ? new Date(t.end_time) : null;
-
+ 
           const status =
             start && end
               ? now >= start && now <= end
@@ -233,7 +232,7 @@ const startAI = async () => {
                 ? "upcoming"
                 : "ended"
               : "upcoming";
-
+ 
             return (
               <div
                 key={t.id}
@@ -257,7 +256,7 @@ const startAI = async () => {
                     <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)" }}>
                       {t.title}
                     </div>
-
+ 
                     <div
                       style={{
                         display: "flex",
@@ -270,7 +269,7 @@ const startAI = async () => {
                       style={{ fontSize: 11, color: "var(--muted)", display: "flex", alignItems: "center", gap: 1, marginLeft: -1}}>
                         <Icon n="book-open" s={10} /> {t.course_name}
                       </span>
-
+ 
                       <span
                         style={{
                           padding: "2px 7px",
@@ -285,7 +284,7 @@ const startAI = async () => {
                       </span>
                     </div>
                   </div>
-
+ 
                   {/* Status */}
                   <span
                     style={{
@@ -315,7 +314,7 @@ const startAI = async () => {
                     {status === "live" ? "Live" : "Upcoming"}
                   </span>
                 </div>
-
+ 
                 {/* Meta */}
                 <div
                   style={{
@@ -333,7 +332,7 @@ const startAI = async () => {
                     <Icon n="book" s={11} /> {t.question_count} Qs
                   </span>
                 </div>
-
+ 
                 {/* Button */}
                 {status === "live" && (
                   <button
@@ -361,8 +360,8 @@ const startAI = async () => {
           </div>
         </div>
       </div>
-
-
+ 
+ 
     </div>
     </>
   );

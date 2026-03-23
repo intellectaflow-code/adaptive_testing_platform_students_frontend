@@ -3,7 +3,6 @@ import Icon from "../components/Icon";
 import Select from "../components/Select";
 import { card } from "../utils/styles";
 import API from "../api/api";
-import Loader from "../components/Loader";
 
 const BRANCHES = [
   "Computer Science",

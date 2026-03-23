@@ -2,8 +2,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Icon from "../components/Icon";
 import { card } from "../utils/styles";
 import API from "../api/api";
-import Loader from "../components/Loader";
-
+import Loader from "../components/loader";
+ 
 function ConfirmModal({ show, title, body, onCancel, onConfirm, cancelTxt, confirmTxt, danger }) {
   if (!show) return null;
   return (
@@ -19,9 +19,9 @@ function ConfirmModal({ show, title, body, onCancel, onConfirm, cancelTxt, confi
     </div>
   );
 }
-
+ 
 export default function QuizPage({ config, setPage, setResults }) {
-  const [qs, setQs] = useState([]); // Initialize as empty array
+  const [qs, setQs] = useState([]);
   const [cur, setCur] = useState(0);
   const [ans, setAns] = useState({});
   const [mrk, setMrk] = useState({});
@@ -30,65 +30,57 @@ export default function QuizPage({ config, setPage, setResults }) {
   const [tabs, setTabs] = useState(0);
   const [quitM, setQuitM] = useState(false);
   const [subM, setSubM] = useState(false);
-  const [loading, setLoading] = useState(true); // Start as true to trigger loader
+ 
+  // ── Two distinct loading states for the right contextual message ──
+  const [loadingQuestions, setLoadingQuestions] = useState(true); // fetching Qs  → variant="test"
+  const [submitting, setSubmitting] = useState(false);            // grading + saving → variant="results"
+ 
   const timer = useRef();
-
+ 
   useEffect(() => {
     const loadQuizData = async () => {
       try {
-        setLoading(true);
+        setLoadingQuestions(true);
         let questionsData = [];
-
+ 
         if (config.type === "teacher") {
           const res = await API.get(`/quizzes/${config.quiz_id}/questions`);
           questionsData = res.data.map(q => ({
             question_id: q.id,
             question_text: q.question_text,
-            options: q.options // Contains [{id, option_text}, ...]
+            options: q.options
           }));
-          } else {
-            // Normalize AI quiz format to match teacher format
-            questionsData = (config.questions || []).map((q, qi) => {
-              const rawOptions = q.options || q.choices || [];
-
-              return {
-                question_id: q.question_id || q.id || qi,
-                question_text: q.question_text || q.question || "",
-                options: rawOptions.map((opt, oi) => {
-                  // Handle both string + object formats
-                  if (typeof opt === "string") {
-                    return {
-                      id: oi,
-                      option_text: opt
-                    };
-                  }
-
-                  return {
-                    id: opt.id ?? oi,
-                    option_text: opt.option_text || opt.text || ""
-                  };
-                })
-              };
-            });
-          }
-
+        } else {
+          questionsData = (config.questions || []).map((q, qi) => {
+            const rawOptions = q.options || q.choices || [];
+            return {
+              question_id: q.question_id || q.id || qi,
+              question_text: q.question_text || q.question || "",
+              options: rawOptions.map((opt, oi) => {
+                if (typeof opt === "string") return { id: oi, option_text: opt };
+                return { id: opt.id ?? oi, option_text: opt.option_text || opt.text || "" };
+              })
+            };
+          });
+        }
+ 
         setQs(questionsData);
       } catch (err) {
         console.error("Failed to load quiz", err);
       } finally {
-        setLoading(false);
+        setLoadingQuestions(false);
       }
     };
-
+ 
     loadQuizData();
   }, [config]);
-
+ 
   useEffect(() => {
     const fn = () => { if (document.hidden) setTabs((t) => t + 1); };
     document.addEventListener("visibilitychange", fn);
     return () => document.removeEventListener("visibilitychange", fn);
   }, []);
-
+ 
   useEffect(() => {
     timer.current = setInterval(() => {
       setTLeft((t) => {
@@ -98,87 +90,75 @@ export default function QuizPage({ config, setPage, setResults }) {
     }, 1000);
     return () => clearInterval(timer.current);
   }, []);
-
-const doSubmit = useCallback(async () => {
-  setLoading(true);
-  clearInterval(timer.current);
-
-  const totalDuration = (config.time || config.duration || 15) * 60;
-  const spent = totalDuration - tLeft;
-
-  // ── AI quiz: options are plain strings in JSONB, send the text itself ──
-  // ── Teacher quiz: options are DB rows with UUIDs, send the UUID ──
-  const formattedAnswers = qs.map((q, i) => {
-    const selectedIdx = ans[i];
-    let selected_answer = null;
-
-    if (selectedIdx !== undefined) {
-      if (config.type === "ai") {
-        // AI options are stored as plain strings — backend compares string == string
-        selected_answer = q.options[selectedIdx].option_text;
-      } else {
-        // Teacher options have real DB UUIDs
-        selected_answer = String(q.options[selectedIdx].id);
+ 
+  const doSubmit = useCallback(async () => {
+    setSubmitting(true);      // ← shows "results" loader
+    clearInterval(timer.current);
+ 
+    const totalDuration = (config.time || config.duration || 15) * 60;
+    const spent = totalDuration - tLeft;
+ 
+    const formattedAnswers = qs.map((q, i) => {
+      const selectedIdx = ans[i];
+      let selected_answer = null;
+      if (selectedIdx !== undefined) {
+        selected_answer = config.type === "ai"
+          ? q.options[selectedIdx].option_text
+          : String(q.options[selectedIdx].id);
       }
-    }
-
-    return { question_id: q.question_id, selected_answer };
-  });
-
-  // AI schema (AIQuizSubmit) only accepts attempt_id + answers — no extra fields
-  // Teacher schema accepts tab_switches + time_spent too
-  const payload = config.type === "ai"
-    ? { attempt_id: config.attempt_id, answers: formattedAnswers }
-    : { attempt_id: config.attempt_id, answers: formattedAnswers, tab_switches: tabs, time_spent: spent };
-
-  try {
-    const endpoint = config.type === "ai"
-      ? "/ai-quiz/submit"
-      : `/quizzes/${config.quiz_id}/submit`;
-
-    const res = await API.post(endpoint, payload);
-    const submissionData = res.data;
-
-    let finalQuestions = [];
-    if (config.type === "ai") {
-      const aiRes = await API.get(`/ai-quiz/${config.attempt_id}/answers`);
-      finalQuestions = aiRes.data;
-    } else {
-      const attemptRes = await API.get(`/attempts/${submissionData.attempt_id}/answers`);
-      finalQuestions = attemptRes.data;
-    }
-
-    // AI response shape: { correct_answers, total_questions }
-    // Teacher response shape: { score, total_possible, attempt_id }
-    const correctCount = config.type === "ai"
-      ? submissionData.correct_answers
-      : submissionData.score;
-    const totalCount = config.type === "ai"
-      ? submissionData.total_questions
-      : submissionData.total_possible || qs.length;
-
-    setResults({
-      questions: finalQuestions,
-      correct: correctCount,
-      total: totalCount,
-      score: Math.round((correctCount / totalCount) * 100),
-      timeSpent: spent,
-      tabs,
-      config,
+      return { question_id: q.question_id, selected_answer };
     });
-
-    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
-    setLoading(false);
-    setPage("results");
-
-  } catch (err) {
-    console.error("Submit failed:", err.response?.data || err);
-    setResults({ questions: [], correct: 0, total: qs.length, timeSpent: spent, tabs, config });
-    setLoading(false);
-    setPage("results");
-  }
-}, [ans, qs, tLeft, tabs, config, setPage, setResults]);
-
+ 
+    const payload = config.type === "ai"
+      ? { attempt_id: config.attempt_id, answers: formattedAnswers }
+      : { attempt_id: config.attempt_id, answers: formattedAnswers, tab_switches: tabs, time_spent: spent };
+ 
+    try {
+      const endpoint = config.type === "ai"
+        ? "/ai-quiz/submit"
+        : `/quizzes/${config.quiz_id}/submit`;
+ 
+      const res = await API.post(endpoint, payload);
+      const submissionData = res.data;
+ 
+      let finalQuestions = [];
+      if (config.type === "ai") {
+        const aiRes = await API.get(`/ai-quiz/${config.attempt_id}/answers`);
+        finalQuestions = aiRes.data;
+      } else {
+        const attemptRes = await API.get(`/attempts/${submissionData.attempt_id}/answers`);
+        finalQuestions = attemptRes.data;
+      }
+ 
+      const correctCount = config.type === "ai" ? submissionData.correct_answers : submissionData.score;
+      const totalCount   = config.type === "ai" ? submissionData.total_questions : submissionData.total_possible || qs.length;
+ 
+      setResults({
+        questions: finalQuestions,
+        correct: correctCount,
+        total: totalCount,
+        score: Math.round((correctCount / totalCount) * 100),
+        timeSpent: spent,
+        tabs,
+        config,
+      });
+ 
+      if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+      setSubmitting(false);
+      setPage("results");
+ 
+    } catch (err) {
+      console.error("Submit failed:", err.response?.data || err);
+      setResults({ questions: [], correct: 0, total: qs.length, timeSpent: spent, tabs, config });
+      setSubmitting(false);
+      setPage("results");
+    }
+  }, [ans, qs, tLeft, tabs, config, setPage, setResults]);
+ 
+  // ── Loader guards — correct variant for each phase ──
+  if (submitting)                        return <Loader variant="results" />;
+  if (loadingQuestions || qs.length === 0) return <Loader variant="test" />;
+ 
   // FULLSCREEN GUARD
   if (!fs) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
@@ -194,15 +174,12 @@ const doSubmit = useCallback(async () => {
       </div>
     </div>
   );
-
-  // DATA LOADING GUARD (Crucial to prevent "undefined" error)
-  if (loading || qs.length === 0) return <Loader />;
-
+ 
   const q = qs[cur];
   const m = Math.floor(tLeft / 60), s = tLeft % 60;
   const timerCol = tLeft < 60 ? "var(--red)" : tLeft < 180 ? "var(--amber)" : "var(--green)";
   const answered = Object.keys(ans).length;
-
+ 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--bg)" }}>
       {/* Header */}
@@ -217,7 +194,7 @@ const doSubmit = useCallback(async () => {
           <button onClick={() => setQuitM(true)} style={{ padding: "5px 13px", background: "rgba(240,96,96,0.08)", border: "1px solid rgba(240,96,96,0.2)", borderRadius: "var(--radius)", color: "var(--red)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Quit</button>
         </div>
       </div>
-
+ 
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
         {/* Question area */}
         <div style={{ flex: 1, padding: "26px 38px", overflowY: "auto" }}>
@@ -228,11 +205,11 @@ const doSubmit = useCallback(async () => {
                 <div style={{ width: `${((cur + 1) / qs.length) * 100}%`, height: "100%", background: "var(--amber)", borderRadius: 2, transition: "width .3s" }} />
               </div>
             </div>
-
+ 
             <div style={card({ padding: 20, marginBottom: 16 })}>
               <p style={{ fontSize: 15, color: "var(--white)", lineHeight: 1.7, margin: 0 }}>{q.question_text}</p>
             </div>
-
+ 
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
               {q.options.map((opt, oi) => {
                 const sel = ans[cur] === oi;
@@ -247,7 +224,7 @@ const doSubmit = useCallback(async () => {
                 );
               })}
             </div>
-
+ 
             <div style={{ display: "flex", gap: 9 }}>
               <button onClick={() => cur > 0 && setCur(cur - 1)} disabled={cur === 0} style={{ padding: "7px 15px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", color: "var(--body)", cursor: "pointer", fontSize: 13, opacity: cur === 0 ? 0.5 : 1 }}>
                 <Icon n="chevL" s={13} /> Prev
@@ -263,7 +240,7 @@ const doSubmit = useCallback(async () => {
             </div>
           </div>
         </div>
-
+ 
         {/* Nav panel */}
         <div style={{ width: 206, background: "var(--surface)", borderLeft: "1px solid var(--border)", padding: 16, display: "flex", flexDirection: "column", gap: 13 }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".8px" }}>Questions</div>
@@ -278,7 +255,7 @@ const doSubmit = useCallback(async () => {
           <button onClick={() => setSubM(true)} style={{ marginTop: "auto", width: "100%", padding: "8px", background: "var(--surface2)", border: "1px solid var(--border2)", borderRadius: "var(--radius)", color: "var(--body)", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Submit Test</button>
         </div>
       </div>
-
+ 
       <ConfirmModal show={quitM} title="Quit test?" body="Your progress will be lost." onCancel={() => setQuitM(false)} onConfirm={() => { if (document.fullscreenElement) document.exitFullscreen(); setPage("home"); }} cancelTxt="Cancel" confirmTxt="Quit" danger />
       <ConfirmModal show={subM} title="Submit test?" body={`${answered}/${qs.length} answered · ${Object.keys(mrk).length} marked`} onCancel={() => setSubM(false)} onConfirm={doSubmit} cancelTxt="Review" confirmTxt="Submit" />
     </div>
