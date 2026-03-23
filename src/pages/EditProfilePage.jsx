@@ -53,6 +53,9 @@ export default function EditProfilePage({ student, setStudent, setPage }) {
   const [pw, setPw] = useState({ cur: "", np: "", cp: "" });
   const [pwErr, setPwErr] = useState("");
   const [loading, setLoading] = useState(false);  
+  const [pwLoading, setPwLoading] = useState(false);
+  const [pwSuccess, setPwSuccess] = useState(false);
+  const [showPwFields, setShowPwFields] = useState({ cur: false, np: false, cp: false });
 
   const [form, setForm] = useState({
     full_name: "",
@@ -99,15 +102,31 @@ const save = async () => {
   }
 };
 
-  const changePw = () => {
-    if (pw.np.length < 8) { setPwErr("Min 8 characters"); return; }
-    if (pw.np !== pw.cp) { setPwErr("Passwords don't match"); return; }
-    setPwErr("");
-    // Here you would typically call your API to change password
+const changePw = async () => {
+  if (!pw.cur) { setPwErr("Enter your current password"); return; }
+  if (pw.np.length < 8) { setPwErr("Min 8 characters"); return; }
+  if (pw.np !== pw.cp) { setPwErr("Passwords don't match"); return; }
+  setPwErr("");
+  setPwLoading(true);
+
+  try {
+    await API.put("/auth/password", {
+      current_password: pw.cur,
+      new_password: pw.np,
+    });
     setPw({ cur: "", np: "", cp: "" });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
-  };
+    setPwSuccess(true);
+    setTimeout(() => setPwSuccess(false), 2500);
+  } catch (err) {
+    const detail = err?.response?.data?.detail;
+    const msg = Array.isArray(detail)
+      ? detail.map((d) => d.msg).join(" ")
+      : detail || "Failed to update password";
+    setPwErr(msg);
+  } finally {
+    setPwLoading(false);
+  }
+};
 
   const inputStyle = (disabled = false) => ({
     width: "100%",
@@ -216,26 +235,58 @@ const save = async () => {
         </button>
       </div>
 
-      <div style={card({ padding: 20 })}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 13 }}>Change Password</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 11, maxWidth: 320 }}>
-          {[["Current Password", "cur"], ["New Password", "np"], ["Confirm Password", "cp"]].map(([l, k]) => (
-            <div key={k}>
-              <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 5 }}>{l}</label>
-              <input 
-                type="password" 
-                value={pw[k]} 
-                onChange={(e) => setPw({ ...pw, [k]: e.target.value })} 
-                style={inputStyle()} 
-              />
-            </div>
-          ))}
-          {pwErr && <span style={{ fontSize: 12, color: "var(--red)" }}>{pwErr}</span>}
-          <button onClick={changePw} style={{ padding: "8px 18px", background: "var(--surface2)", border: "1px solid var(--border2)", borderRadius: "var(--radius)", color: "var(--body)", cursor: "pointer", fontSize: 13, fontWeight: 600, alignSelf: "flex-start" }}>
-            Update Password
-          </button>
+    <div style={card({ padding: 20 })}>
+      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 13 }}>Change Password</div>
+
+      {pwSuccess && (
+        <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 13px",
+          background: "rgba(74,222,128,0.07)", border: "1px solid rgba(74,222,128,0.18)",
+          borderRadius: "var(--radius)", marginBottom: 12, color: "var(--green)", fontSize: 13 }}>
+          <Icon n="check" s={13} /> Password updated
+        </div>
+      )}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 11, maxWidth: 320 }}>
+    {[["Current Password", "cur"], ["New Password", "np"], ["Confirm Password", "cp"]].map(([l, k]) => (
+      <div key={k}>
+        <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 5 }}>{l}</label>
+        <div style={{ position: "relative" }}>
+          <input
+            type={showPwFields[k] ? "text" : "password"}
+            value={pw[k]}
+            onChange={(e) => setPw({ ...pw, [k]: e.target.value })}
+            style={{ ...inputStyle(), paddingRight: 38 }}
+          />
+          <span
+            onClick={() => setShowPwFields(prev => ({ ...prev, [k]: !prev[k] }))}
+            style={{
+              position: "absolute", right: 10, top: "50%",
+              transform: "translateY(-50%)", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 22, height: 22, color: "var(--muted)",
+            }}
+          >
+            <Icon n={showPwFields[k] ? "eyeOff" : "eye"} s={16} />
+          </span>
         </div>
       </div>
+    ))}
+
+        {pwErr && <span style={{ fontSize: 12, color: "var(--red)" }}>{pwErr}</span>}
+
+        <button
+          onClick={changePw}
+          disabled={pwLoading}
+          style={{ padding: "8px 18px", background: "var(--surface2)",
+            border: "1px solid var(--border2)", borderRadius: "var(--radius)",
+            color: "var(--body)", cursor: pwLoading ? "not-allowed" : "pointer",
+            fontSize: 13, fontWeight: 600, alignSelf: "flex-start",
+            opacity: pwLoading ? 0.7 : 1, display: "flex", alignItems: "center", gap: 6 }}>
+          {pwLoading && <Icon n="loader" s={14} />}
+          {pwLoading ? "Updating..." : "Update Password"}
+        </button>
+      </div>
+    </div>
     </div>
   );
 }
