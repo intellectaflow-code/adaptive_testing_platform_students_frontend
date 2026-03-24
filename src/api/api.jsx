@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "http://localhost:8000/api/v1",
+  baseURL: "https://adaptive-quiz-api-service-759082157852.asia-south1.run.app/api/v1",
 });
 
 API.interceptors.request.use((config) => {
