@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Icon from "./Icon";
 import { initials } from "../utils/styles";
-
+ 
 const NAV_ITEMS = [
   { id: "home",          n: "home",      label: "Home" },
   { id: "dashboard",     n: "chart",     label: "Dashboard" },
@@ -9,10 +9,10 @@ const NAV_ITEMS = [
   { id: "profile",       n: "user",      label: "Profile" },
   { id: "settings",      n: "settings",  label: "Settings" },
 ];
-
+ 
 export default function Sidebar({ page, setPage, student, onLogout, col, setCol }) {
   console.log("Current Student in Sidebar:", student);
-
+ 
   return (
     <aside
       style={{
@@ -44,12 +44,17 @@ export default function Sidebar({ page, setPage, student, onLogout, col, setCol 
           <Icon n="brain" s={15} />
         </button>
         {!col && (
-          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--white)", letterSpacing: "-0.2px", whiteSpace: "nowrap", overflow: "hidden" }}>
-            IntellectaFlow
-          </span>
+          <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            <span style={{ fontSize: 16, fontWeight: 700, color: "var(--white)", letterSpacing: "-0.2px", whiteSpace: "nowrap", overflow: "hidden" }}>
+              IntellectaFlow
+            </span>
+            <span style={{ fontSize: 10, color: "var(--muted)", whiteSpace: "nowrap", overflow: "hidden", letterSpacing: "0.3px" }}>
+              Student Portal
+            </span>
+          </div>
         )}
       </div>
-
+ 
       {/* Nav links */}
       <nav style={{ flex: 1, padding: "10px 8px", display: "flex", flexDirection: "column", gap: 1, overflowY: "auto" }}>
         {NAV_ITEMS.map((item) => {
@@ -83,13 +88,12 @@ export default function Sidebar({ page, setPage, student, onLogout, col, setCol 
           );
         })}
       </nav>
-
+ 
 {/* User info + Logout */}
 <div style={{ borderTop: "1px solid var(--border)", padding: "10px 8px" }}>
-  {!col && student && ( // This check ensures the box only shows if a user exists
+  {!col && student && (
     <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 10px", marginBottom: 4, background: "var(--surface2)", borderRadius: "var(--radius)", border: "1px solid var(--border)" }}>
       <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--amber)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#0C0E14", flexShrink: 0 }}>
-        {/* Safe check: initials will only run if student.full_name exists */}
         {initials(student?.full_name || "")}
       </div>
       <div style={{ overflow: "hidden" }}>
@@ -100,7 +104,6 @@ export default function Sidebar({ page, setPage, student, onLogout, col, setCol 
       </div>
     </div>
   )}
-  {/* Logout button... */}
         <button
           onClick={onLogout}
           title={col ? "Log Out" : ""}
