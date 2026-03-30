@@ -1,26 +1,67 @@
 import { useState, useEffect, useRef } from "react";
 import Icon from "./Icon";
 
-export default function Select({ value, onChange, options, placeholder, styleOverrides = {} }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef();
+export default function Select({ value, onChange, options, placeholder, styleOverrides = {}, searchable = false, disabled = false }) {
+  const [open, setOpen]   = useState(false);
+  const [query, setQuery] = useState("");
+  const ref               = useRef();
 
   useEffect(() => {
     const fn = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target)) {
+        setOpen(false);
+        setQuery("");
+      }
     };
     document.addEventListener("mousedown", fn);
     return () => document.removeEventListener("mousedown", fn);
   }, []);
 
+  // Capture keypresses when open + searchable
+  useEffect(() => {
+    if (!open || !searchable) return;
+
+    const fn = (e) => {
+      if (e.key === "Backspace") {
+        setQuery((q) => q.slice(0, -1));
+      } else if (e.key === "Escape") {
+        setOpen(false);
+        setQuery("");
+      } else if (e.key.length === 1) {
+        // Only printable characters
+        setQuery((q) => q + e.key);
+      }
+    };
+
+    window.addEventListener("keydown", fn);
+    return () => window.removeEventListener("keydown", fn);
+  }, [open, searchable]);
+
+  // Reset query when closed
+  useEffect(() => {
+    if (!open) setQuery("");
+  }, [open]);
+
   const sel = options.find((o) => (o.value || o) === value);
 
+  const filtered = searchable && query.trim()
+    ? options.filter((o) => {
+        const label = o.label || o;
+        return label.toLowerCase().includes(query.toLowerCase());
+      })
+    : options;
+
   return (
-    <div ref={ref} style={{ position: "relative", userSelect: "none" }}>
+    <div
+      ref={ref}
+      style={{ position: "relative", userSelect: "none",minWidth: 0, opacity: disabled ? 0.5 : 1, pointerEvents: disabled ? "none" : "auto" }}
+    >
       <button
-        onClick={() => setOpen(!open)}
+        onClick={() => { if (!disabled) setOpen((v) => !v); }}
         style={{
           width: "100%",
+          minWidth: 0,        
+          overflow: "hidden",
           padding: "9px 32px 9px 12px",
           background: "var(--bg)",
           border: "1px solid var(--border2)",
@@ -28,79 +69,63 @@ export default function Select({ value, onChange, options, placeholder, styleOve
           color: value ? "var(--white)" : "var(--muted)",
           fontSize: 13,
           textAlign: "left",
-          cursor: "pointer",
+          cursor: disabled ? "not-allowed" : "pointer",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           transition: "border-color .2s",
           outline: "none",
-          ...styleOverrides.button   // ✅ ADD THIS
+          ...styleOverrides.button,
         }}
         onFocus={(e) => (e.currentTarget.style.borderColor = "var(--amber)")}
-        onBlur={(e) => (e.currentTarget.style.borderColor = "var(--border2)")}
+        onBlur={(e)  => (e.currentTarget.style.borderColor = "var(--border2)")}
       >
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-          {sel ? sel.label || sel : <span style={{ color: "var(--muted)" }}>{placeholder || "Select..."}</span>}
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>
+          {sel
+            ? sel.label || sel
+            : <span style={{ color: "var(--muted)" }}>{placeholder || "Select..."}</span>}
         </span>
-        <span
-          style={{
-            position: "absolute",
-            right: 10,
-            top: "50%",
-            transform: `translateY(-50%) rotate(${open ? 180 : 0}deg)`,
-            transition: "transform .2s",
-            color: "var(--muted)",
-            display: "flex",
-          }}
-        >
+        <span style={{ position: "absolute", right: 10, top: "50%", transform: `translateY(-50%) rotate(${open ? 180 : 0}deg)`, transition: "transform .2s", color: "var(--muted)", display: "flex" }}>
           <Icon n="chevD" s={14} />
         </span>
       </button>
 
       {open && (
-        <div
-          style={{
-            position: "absolute",
-            top: "calc(100% + 4px)",
-            left: 0,
-            right: 0,
-            zIndex: 100,
-            background: "var(--surface)",
-            border: "1px solid var(--border2)",
-            borderRadius: "var(--radius)",
-            boxShadow: "0 8px 24px rgba(0,0,0,.4)",
-            overflow: "hidden",
-            maxHeight: 220,
-            overflowY: "auto",
-            ...styleOverrides.dropdown   // ✅ ADD THIS
-          }}
-        >
-          {options.map((opt, i) => {
-            const v = opt.value || opt;
-            const l = opt.label || opt;
-            return (
-              <div
-                key={i}
-                onClick={() => { onChange(v); setOpen(false); }}
-                style={{
-                  padding: "9px 12px",
-                  cursor: "pointer",
-                  fontSize: 13,
-                  color: value === v ? "var(--amber)" : "var(--body)",
-                  background: value === v ? "rgba(240,165,0,0.07)" : "transparent",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  transition: "background .12s",
-                }}
-                onMouseEnter={(e) => { if (value !== v) e.currentTarget.style.background = "var(--surface2)"; }}
-                onMouseLeave={(e) => { if (value !== v) e.currentTarget.style.background = "transparent"; }}
-              >
-                <span>{l}</span>
-                {value === v && <span style={{ color: "var(--amber)", fontSize: 10 }}>✓</span>}
+        <div style={{
+          position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 100,
+          background: "var(--surface)", border: "1px solid var(--border2)",
+          borderRadius: "var(--radius)", boxShadow: "0 8px 24px rgba(0,0,0,.4)",
+          overflow: "hidden",
+          ...styleOverrides.dropdown,
+        }}>
+          <div style={{ maxHeight: 220, overflowY: "auto" }}>
+            {filtered.length > 0 ? filtered.map((opt, i) => {
+              const v = opt.value || opt;
+              const l = opt.label  || opt;
+              return (
+                <div
+                  key={i}
+                  onClick={() => { onChange(v); setOpen(false); setQuery(""); }}
+                  style={{
+                    padding: "9px 12px", cursor: "pointer", fontSize: 13,
+                    color: value === v ? "var(--amber)" : "var(--body)",
+                    background: value === v ? "rgba(240,165,0,0.07)" : "transparent",
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    transition: "background .12s",
+                  }}
+                  onMouseEnter={(e) => { if (value !== v) e.currentTarget.style.background = "var(--surface2)"; }}
+                  onMouseLeave={(e) => { if (value !== v) e.currentTarget.style.background = "transparent"; }}
+                >
+                  <span>{l}</span>
+                  {value === v && <span style={{ color: "var(--amber)", fontSize: 10 }}>✓</span>}
+                </div>
+              );
+            }) : (
+              <div style={{ padding: "10px 12px", fontSize: 12, color: "var(--muted)", textAlign: "center" }}>
+                No results for "{query}"
               </div>
-            );
-          })}
+            )}
+          </div>
         </div>
       )}
     </div>

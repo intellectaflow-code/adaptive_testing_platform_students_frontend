@@ -261,7 +261,7 @@ const openAttempt = async (a) => {
       style={{ width: "100%", marginTop: 10, padding: "7px", background: "none", border: "1px solid var(--border2)", borderRadius: "var(--radius)", color: "var(--muted)", cursor: "pointer", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, transition: "all .15s" }}
       onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--amber)"; e.currentTarget.style.color = "var(--amber)"; }}
       onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border2)"; e.currentTarget.style.color = "var(--muted)"; }}>
-      {expanded ? <><Icon n="chevL" s={12} /> Show Less</> : <>View More <Icon n="chevD" s={12} /></>}
+      {expanded ? <><Icon n="chevU" s={12} /> Show Less</> : <>View More <Icon n="chevD" s={12} /></>}
     </button>
   )
  

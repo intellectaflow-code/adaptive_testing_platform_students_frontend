@@ -125,18 +125,6 @@ export default function SettingsPage({ theme, setTheme }) {
         />
       </div>
 
-      {/* Quiz Preferences */}
-      <div style={card({ padding: 20, marginBottom: 11 })}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 4 }}>
-          Quiz Preferences
-        </div>
-        <Row
-          label="Auto-Enter Fullscreen"
-          v={settings.auto_fullscreen}
-          onChange={(v) => handleToggle("auto_fullscreen", v)}
-          disabled={loading || saving === "auto_fullscreen"}
-        />
-      </div>
 
       {/* Account */}
       <div style={card({ padding: 20 })}>
