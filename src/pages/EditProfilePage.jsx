@@ -1,10 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Icon from "../components/Icon";
 import { card } from "../utils/styles";
 import API from "../api/api";
 import Select from "../components/Select";
-
-// ── Removed hardcoded BRANCHES array ──
 
 const FALLBACK_BRANCHES = [
   "Computer Science",
@@ -37,6 +35,131 @@ const Field = ({ label, k, form, setForm, disabled = false, type = "text", input
   </div>
 );
 
+// ── Profile Photo Component ──
+const ProfilePhotoField = ({ student, onPhotoChange, uploading }) => {
+  const fileInputRef = useRef(null);
+  const [preview, setPreview] = useState(null);
+
+  useEffect(() => {
+    // Use existing photo from student if available
+    setPreview(student?.profile_photo || student?.avatar || null);
+  }, [student]);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate type
+    if (!file.type.startsWith("image/")) {
+      alert("Please select an image file.");
+      return;
+    }
+    // Validate size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image must be smaller than 5MB.");
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    setPreview(objectUrl);
+    onPhotoChange(file);
+  };
+
+  const handleRemove = () => {
+    setPreview(null);
+    onPhotoChange(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const initials = student?.full_name
+    ? student.full_name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2)
+    : "?";
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 18, paddingBottom: 18, borderBottom: "1px solid var(--border2)" }}>
+      {/* Avatar circle */}
+      <div style={{ position: "relative", flexShrink: 0 }}>
+        <div style={{
+          width: 72, height: 72, borderRadius: "50%",
+          background: preview ? "transparent" : "var(--surface2)",
+          border: "2px solid var(--border2)",
+          overflow: "hidden",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 22, fontWeight: 700, color: "var(--amber)",
+        }}>
+          {preview
+            ? <img src={preview} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            : initials
+          }
+        </div>
+
+        {/* Camera badge */}
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          title="Change photo"
+          style={{
+            position: "absolute", bottom: 0, right: 0,
+            width: 24, height: 24, borderRadius: "50%",
+            background: "var(--amber)", border: "2px solid var(--bg)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: uploading ? "not-allowed" : "pointer",
+            padding: 0, opacity: uploading ? 0.6 : 1,
+          }}
+        >
+          <Icon n="camera" s={11} style={{ color: "#0C0E14" }} />
+        </button>
+      </div>
+
+      {/* Text + actions */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--white)" }}>Profile Photo</span>
+        <span style={{ fontSize: 11, color: "var(--muted)" }}>JPG, PNG or WebP · Max 5 MB</span>
+        <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            style={{
+              padding: "5px 11px", fontSize: 11, fontWeight: 600,
+              background: "var(--surface2)", border: "1px solid var(--border2)",
+              borderRadius: "var(--radius)", color: "var(--body)",
+              cursor: uploading ? "not-allowed" : "pointer",
+              display: "flex", alignItems: "center", gap: 5,
+              opacity: uploading ? 0.6 : 1,
+            }}
+          >
+            {uploading ? <Icon n="loader" s={11} /> : <Icon n="upload" s={11} />}
+            {uploading ? "Uploading..." : preview ? "Change" : "Upload"}
+          </button>
+
+          {preview && !uploading && (
+            <button
+              onClick={handleRemove}
+              style={{
+                padding: "5px 11px", fontSize: 11, fontWeight: 600,
+                background: "transparent", border: "1px solid var(--border2)",
+                borderRadius: "var(--radius)", color: "var(--red)",
+                cursor: "pointer",
+              }}
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        onChange={handleFileChange}
+        style={{ display: "none" }}
+      />
+    </div>
+  );
+};
+
 export default function EditProfilePage({ student, setStudent, setPage }) {
   const [saved, setSaved]           = useState(false);
   const [pw, setPw]                 = useState({ cur: "", np: "", cp: "" });
@@ -46,7 +169,9 @@ export default function EditProfilePage({ student, setStudent, setPage }) {
   const [pwSuccess, setPwSuccess]   = useState(false);
   const [showPwFields, setShowPwFields] = useState({ cur: false, np: false, cp: false });
 
-  // ── Dynamic branches ──
+  const [photoFile, setPhotoFile]         = useState(null);  // ← new
+  const [photoUploading, setPhotoUploading] = useState(false); // ← new
+
   const [branches, setBranches]           = useState([]);
   const [branchesLoading, setBranchesLoading] = useState(true);
 
@@ -55,7 +180,6 @@ export default function EditProfilePage({ student, setStudent, setPage }) {
     branch: "", section: "", semester: ""
   });
 
-  // Fetch departments
   useEffect(() => {
     const fetchDepartments = async () => {
       try {
@@ -71,7 +195,6 @@ export default function EditProfilePage({ student, setStudent, setPage }) {
     fetchDepartments();
   }, []);
 
-  // Populate form from student prop
   useEffect(() => {
     if (!student) return;
     setForm({
@@ -84,24 +207,53 @@ export default function EditProfilePage({ student, setStudent, setPage }) {
     });
   }, [student]);
 
-  const save = async () => {
-    try {
-      setLoading(true);
-      const res = await API.put("/profiles/me", {
-        full_name: form.full_name,
-        branch:    form.branch,
-        section:   form.section,
-        sem:       Number(form.semester)
-      });
-      setStudent(prev => ({ ...prev, ...res.data }));
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // ── Upload photo helper ──
+const uploadPhoto = async (file) => {
+  if (!file) return;
+  setPhotoUploading(true);
+  try {
+    const formData = new FormData();
+    formData.append("photo", file);
+    const res = await API.put("/profiles/me/photo", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    const updated = { ...student, profile_photo: res.data.profile_photo };
+    setStudent(updated);
+    localStorage.setItem("user_data", JSON.stringify(updated)); // ← add this
+    setPhotoFile(null);
+  } catch (err) {
+    console.error("Photo upload failed:", err);
+  } finally {
+    setPhotoUploading(false);
+  }
+};
+
+// In your save() function, after setStudent:
+const save = async () => {
+  try {
+    setLoading(true);
+
+    if (photoFile) await uploadPhoto(photoFile);
+
+    const res = await API.put("/profiles/me", {
+      full_name: form.full_name,
+      branch:    form.branch,
+      section:   form.section,
+      sem:       Number(form.semester)
+    });
+
+    const updated = { ...student, ...res.data };
+    setStudent(updated);
+    localStorage.setItem("user_data", JSON.stringify(updated)); // ← add this
+
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  } catch (err) {
+    console.error(err);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const changePw = async () => {
     if (!pw.cur)          { setPwErr("Enter your current password"); return; }
@@ -152,12 +304,19 @@ export default function EditProfilePage({ student, setStudent, setPage }) {
 
       <div style={card({ padding: 20, marginBottom: 11 })}>
         <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 13 }}>Personal Information</div>
+
+        {/* ── Profile Photo ── */}
+        <ProfilePhotoField
+          student={student}
+          onPhotoChange={setPhotoFile}
+          uploading={photoUploading}
+        />
+
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <Field label="Full Name" k="full_name" form={form} setForm={setForm} inputStyle={inputStyle} />
           <Field label="Email"     k="email"     form={form} setForm={setForm} inputStyle={inputStyle} disabled />
           <Field label="USN"       k="usn"       form={form} setForm={setForm} inputStyle={inputStyle} disabled />
 
-          {/* ── Dynamic Branch dropdown ── */}
           <div>
             <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 5 }}>
               Branch <span style={{ color: "var(--red)" }}>*</span>
@@ -187,8 +346,8 @@ export default function EditProfilePage({ student, setStudent, setPage }) {
           </div>
         </div>
 
-        <button onClick={save} disabled={loading || branchesLoading}
-          style={{ marginTop: 14, padding: "8px 20px", background: "var(--amber)", border: "none", borderRadius: "var(--radius)", color: "#0C0E14", fontWeight: 700, cursor: (loading || branchesLoading) ? "not-allowed" : "pointer", fontSize: 13, opacity: (loading || branchesLoading) ? 0.7 : 1, display: "flex", alignItems: "center", gap: 6 }}>
+        <button onClick={save} disabled={loading || branchesLoading || photoUploading}
+          style={{ marginTop: 14, padding: "8px 20px", background: "var(--amber)", border: "none", borderRadius: "var(--radius)", color: "#0C0E14", fontWeight: 700, cursor: (loading || branchesLoading || photoUploading) ? "not-allowed" : "pointer", fontSize: 13, opacity: (loading || branchesLoading || photoUploading) ? 0.7 : 1, display: "flex", alignItems: "center", gap: 6 }}>
           {loading && <Icon n="loader" s={14} />}
           {loading ? "Saving..." : "Save Changes"}
         </button>

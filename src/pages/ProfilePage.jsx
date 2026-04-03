@@ -102,9 +102,12 @@ export default function ProfilePage({ student, setPage }) {
       {/* ── Profile header ── */}
       <div style={card({ padding: "24px 26px", marginBottom: 12 })}>
         <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-          <div style={{ width: 62, height: 62, borderRadius: "50%", background: "var(--amber)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 800, color: "#0C0E14", flexShrink: 0 }}>
-            {initials(student.full_name)}
-          </div>
+        <div style={{ width: 62, height: 62, borderRadius: "50%", background: "var(--amber)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 800, color: "#0C0E14", flexShrink: 0, overflow: "hidden", padding: 0 }}>
+          {student?.profile_photo
+            ? <img src={student.profile_photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            : initials(student.full_name)
+          }
+        </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 17, fontWeight: 700, color: "var(--white)", marginBottom: 2 }}>{student.full_name}</div>
             <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 9 }}>{student.email}</div>

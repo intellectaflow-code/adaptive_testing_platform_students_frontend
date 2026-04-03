@@ -40,14 +40,14 @@ export default function App() {
 const handleLoginSuccess = async (basicData) => {
   setLoggedIn(true);
   try {
-    const res = await API.get("/auth/me");
+    const res = await API.get("/profiles/me"); // ← make sure this returns profile_photo
     const fullProfile = res.data;
     setStudent(fullProfile);
-    localStorage.setItem("user_data", JSON.stringify(fullProfile)); // ← consistent key
+    localStorage.setItem("user_data", JSON.stringify(fullProfile));
   } catch (err) {
     console.error("Failed to fetch profile", err);
     setStudent(basicData);
-    localStorage.setItem("user_data", JSON.stringify(basicData));   // ← also write on fallback
+    localStorage.setItem("user_data", JSON.stringify(basicData));
   }
 };
 

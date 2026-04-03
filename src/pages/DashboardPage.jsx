@@ -26,7 +26,11 @@ const [showAllLB, setShowAllLB] = useState(false);
 const [showAllAttempts, setShowAllAttempts] = useState(false);
 const [courses, setCourses] = useState([]);
 const [selectedCourse, setSelectedCourse] = useState(null);
-const COLORS = ["#F59E0B", "#10B981", "#3B82F6", "#EF4444", "#8B5CF6"];
+const COLORS = [
+  "#F59E0B", "#10B981", "#3B82F6", "#EF4444", "#8B5CF6",
+  "#EC4899", "#14B8A6", "#F97316", "#6366F1", "#84CC16",
+  "#06B6D4", "#A855F7", "#F43F5E", "#22C55E", "#FACC15"
+];
  
 function getColor(name) {
   let hash = 0;
@@ -36,7 +40,24 @@ function getColor(name) {
   return COLORS[Math.abs(hash) % COLORS.length];
 }
  
- 
+const subjectColors = useMemo(() => {
+  const map = {};
+  const used = new Set();
+  subjects.forEach(s => {
+    let hash = 0;
+    for (let i = 0; i < s.name.length; i++) {
+      hash = s.name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    let idx = Math.abs(hash) % COLORS.length;
+    while (used.has(COLORS[idx])) {
+      idx = (idx + 1) % COLORS.length;
+    }
+    map[s.name] = COLORS[idx];
+    used.add(COLORS[idx]);
+  });
+  return map;
+}, [subjects]);
+
 useEffect(() => {
   const loadDashboard = async () => {
     setLoading(true);
@@ -60,7 +81,7 @@ if (dateRange?.s) {
   params.start_date = normalizeDate(dateRange.s, false);
   params.end_date = normalizeDate(dateRange.e || dateRange.s, true);
 }
- 
+
 const res = await API.get("/analytics/student/dashboard", { params });
   console.log("ATTEMPT RAW:", res.data.attempts[0]);
  
@@ -103,7 +124,7 @@ const computedSubjects = Object.entries(subjectMap).map(([name, data]) => ({
   subject: name,
   score: Math.round(data.total / data.count),
   tests: data.count,
-  color: getColor(name)
+  color: subjectColors[name] ?? getColor(name) // fallback
 }));
  
 setSubjects(computedSubjects);
@@ -452,7 +473,7 @@ const openAttempt = async (a) => {
  
 {viewMoreBtn(showAllLB, () => setShowAllLB(!showAllLB))}
 </div>
- 
+ {/* {attempts} */}
         <div style={card({ padding: 20 })}>
           <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 12 }}>
             Attempts <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 400 }}>({attempts.length})</span>
@@ -470,9 +491,15 @@ const openAttempt = async (a) => {
                     <div style={{ fontSize: 10, color: "var(--muted)" }}>{a.subject}</div>
                   </td>
                   <td style={{ padding: "9px 9px" }}>
-                    <span style={a.type === "ai" ? pill("var(--amber)", "rgba(240,165,0,0.1)") : pill("var(--blue)", "rgba(96,165,250,0.1)")}>
-                      {a.type === "ai" ? "AI" : "Teacher"}
-                    </span>
+                  <span style={
+                    a.type === "ai" 
+                      ? pill("var(--amber)", "rgba(240,165,0,0.1)") 
+                      : a.type === "hod" 
+                        ? pill("var(--purple)", "rgba(168,85,247,0.1)") 
+                        : pill("var(--blue)", "rgba(96,165,250,0.1)")
+                  }>
+                    {a.type === "ai" ? "AI" : a.type === "hod" ? "HOD" : "Teacher"}
+                  </span>
                   </td>
                   <td style={{ padding: "9px 9px", fontSize: 11, color: "var(--muted)" }}>
                     {a.attempt_date ? new Date(a.attempt_date).toLocaleDateString() : "—"}

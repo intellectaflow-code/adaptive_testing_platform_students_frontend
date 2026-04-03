@@ -30,6 +30,9 @@ export default function QuizPage({ config, setPage, setResults }) {
   const [tabs, setTabs] = useState(0);
   const [quitM, setQuitM] = useState(false);
   const [subM, setSubM] = useState(false);
+  const PROCTOR_URL = "http://localhost:8000"; 
+  const [violations, setViolations] = useState([]);
+  const [showCam, setShowCam] = useState(true);
  
   // ── Two distinct loading states for the right contextual message ──
   const [loadingQuestions, setLoadingQuestions] = useState(true); // fetching Qs  → variant="test"
@@ -75,11 +78,45 @@ export default function QuizPage({ config, setPage, setResults }) {
     loadQuizData();
   }, [config]);
  
-  useEffect(() => {
-    const fn = () => { if (document.hidden) setTabs((t) => t + 1); };
-    document.addEventListener("visibilitychange", fn);
-    return () => document.removeEventListener("visibilitychange", fn);
-  }, []);
+useEffect(() => {
+  const poll = setInterval(async () => {
+    try {
+      const res = await fetch(`${PROCTOR_URL}/status`);
+      const data = await res.json();
+      setViolations(data.violations || []);
+    } catch (_) {}
+  }, 5000);
+  return () => clearInterval(poll);
+}, []);
+
+useEffect(() => {
+  const reportEvent = (name) =>
+    fetch(`${PROCTOR_URL}/log_browser_event`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event: name }),
+    }).catch(() => {});
+
+  const onVisibility = () => {
+    if (document.hidden) {
+      setTabs((t) => t + 1);
+      reportEvent("tab_switch");
+    }
+  };
+
+  const onFullscreenChange = () => {
+    if (!document.fullscreenElement) {
+      reportEvent("fullscreen_exit");
+    }
+  };
+
+  document.addEventListener("visibilitychange", onVisibility);
+  document.addEventListener("fullscreenchange", onFullscreenChange);
+  return () => {
+    document.removeEventListener("visibilitychange", onVisibility);
+    document.removeEventListener("fullscreenchange", onFullscreenChange);
+  };
+}, []);
  
   useEffect(() => {
     timer.current = setInterval(() => {
@@ -110,7 +147,7 @@ export default function QuizPage({ config, setPage, setResults }) {
     });
  
     const payload = config.type === "ai"
-      ? { attempt_id: config.attempt_id, answers: formattedAnswers }
+      ? { attempt_id: config.attempt_id, answers: formattedAnswers, tab_switches: tabs }
       : { attempt_id: config.attempt_id, answers: formattedAnswers, tab_switches: tabs, time_spent: spent };
  
     try {
@@ -254,10 +291,45 @@ export default function QuizPage({ config, setPage, setResults }) {
           </div>
           <button onClick={() => setSubM(true)} style={{ marginTop: "auto", width: "100%", padding: "8px", background: "var(--surface2)", border: "1px solid var(--border2)", borderRadius: "var(--radius)", color: "var(--body)", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Submit Test</button>
         </div>
-      </div>
+      </div>00
  
       <ConfirmModal show={quitM} title="Quit test?" body="Your progress will be lost." onCancel={() => setQuitM(false)} onConfirm={() => { if (document.fullscreenElement) document.exitFullscreen(); setPage("home"); }} cancelTxt="Cancel" confirmTxt="Quit" danger />
       <ConfirmModal show={subM} title="Submit test?" body={`${answered}/${qs.length} answered · ${Object.keys(mrk).length} marked`} onCancel={() => setSubM(false)} onConfirm={doSubmit} cancelTxt="Review" confirmTxt="Submit" />
-    </div>
+      {/* ── Proctoring: webcam thumbnail ── */}
+      {showCam && (
+        <div style={{
+          position: "fixed", bottom: 18, right: 18, zIndex: 200,
+          border: "2px solid var(--border2)", borderRadius: "var(--radius)",
+          overflow: "hidden", width: 180, boxShadow: "0 4px 18px rgba(0,0,0,.5)"
+        }}>
+          <img
+            src={`${PROCTOR_URL}/video_feed`}
+            alt="proctor-cam"
+            style={{ width: "100%", display: "block" }}
+          />
+          <button
+            onClick={() => setShowCam(false)}
+            style={{
+              position: "absolute", top: 4, right: 4, width: 20, height: 20,
+              background: "rgba(0,0,0,.6)", border: "none", borderRadius: 4,
+              color: "#fff", fontSize: 11, cursor: "pointer", lineHeight: 1
+            }}>✕</button>
+        </div>
+      )}
+
+      {/* ── Proctoring: violation banner ── */}
+      {violations.length > 0 && (
+        <div style={{
+          position: "fixed", top: 52, left: "50%", transform: "translateX(-50%)",
+          zIndex: 200, background: "rgba(220,38,38,0.92)", color: "#fff",
+          padding: "7px 18px", borderRadius: "var(--radius)", fontSize: 12,
+          fontWeight: 600, display: "flex", gap: 8, alignItems: "center",
+          maxWidth: "80vw", flexWrap: "wrap", boxShadow: "0 4px 14px rgba(0,0,0,.4)"
+        }}>
+          <span>⚠</span>
+          {violations.map((v, i) => <span key={i}>{v}{i < violations.length - 1 ? " · " : ""}</span>)}
+        </div>
+      )}
+          </div>
   );
 }

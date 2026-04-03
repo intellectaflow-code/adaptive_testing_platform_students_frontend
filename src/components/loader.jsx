@@ -5,7 +5,6 @@ const VARIANTS = {
     lines: [
       "Crafting your questions…",
       "Balancing difficulty levels…",
-      "Almost ready to challenge you…",
       "Your test is being generated…",
     ],
     icon: "✦",

@@ -5,7 +5,7 @@ import { card, scoreColor, pill } from "../utils/styles";
 import API from "../api/api";
 import Loader from "../components/loader";
  
-const SUBJECTS = ["Computer Science", "Data Science","", "Mathematics", "Physics", "Chemistry", "Electronics","Others"];
+const SUBJECTS = ["Computer Science", "Data Science", "Mathematics", "Physics", "Chemistry", "Electronics","Others"];
  
 export default function HomePage({ setPage, setQuizConfig }) {
   const [aiForm, setAiForm] = useState({ subject: "", topic: "", questions: 10, time: 15, difficulty: "medium" });
@@ -168,7 +168,7 @@ const startAI = async () => {
         {/* Teacher Tests */}
         <div style={card({
           padding: 22,
-          height: 420,
+          height: 420,  
           display: "flex",
           flexDirection: "column"
         })}>
@@ -253,9 +253,14 @@ const startAI = async () => {
                   }}
                 >
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)" }}>
-                      {t.title}
-                    </div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)" }}>
+                    {t.course_name}{t.teacher_name && (
+                      <span style={{ fontSize: 11, fontWeight: 400, color: "var(--muted)", marginLeft: 8 }}>
+                        {t.teacher_name}
+                      </span>
+                    )}
+                  </div>
+
  
                     <div
                       style={{
@@ -267,7 +272,7 @@ const startAI = async () => {
                     >
                     <span
                       style={{ fontSize: 11, color: "var(--muted)", display: "flex", alignItems: "center", gap: 1, marginLeft: -1}}>
-                        <Icon n="book-open" s={10} /> {t.course_name}
+                        <Icon n="book-open" s={10} /> {t.title}
                       </span>
  
                       <span
