@@ -464,7 +464,7 @@ const openAttempt = async (a) => {
                     {s.name}
                   </span>
                   <span style={{ fontSize: 12, fontWeight: 700, color: "var(--white)" }}>
-                    {s.score}%
+                    {s.score}
                   </span>
                 </div>
               ))
