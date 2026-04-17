@@ -6,7 +6,6 @@ import Topbar from "./components/Topbar";
 
 // Pages
 import LoginPage from "./pages/LoginPage";
-import SignupPage from "./pages/SignupPage";
 import HomePage from "./pages/HomePage";
 import QuizPage from "./pages/QuizPage";
 import ResultsPage from "./pages/ResultsPage";
@@ -97,9 +96,7 @@ const handleLogout = () => {
         {/* ── Auth screens ── */}
         {isAuth ? (
           <div style={{ flex: 1 }}>
-            {authPage === "login"
-              ? <LoginPage setAuthPage={setAuthPage} onLogin={handleLoginSuccess} />
-              : <SignupPage setAuthPage={setAuthPage} onLogin={handleLoginSuccess} />}
+          <LoginPage onLogin={handleLoginSuccess} />
           </div>
 
         ) : isQuiz ? (

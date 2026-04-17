@@ -158,13 +158,13 @@ export default function ProfilePage({ student, setPage }) {
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 2 }}>{c.name}</div>
                       <div style={{ fontSize: 11, color: "var(--muted)", display: "flex", alignItems: "center", gap: 4 }}>
-                        <Icon n="person" s={11} />
+                        <Icon n="user" s={11} />
                         {c.teacher_name || c.instructor_name || c.faculty_name || "—"}
                       </div>
                     </div>
                   </div>
                   {c.code && (
-                    <span style={{ padding: "3px 8px", background: "var(--surface2)", border: "1px solid var(--border2)", borderRadius: 20, fontSize: 10, color: "var(--muted)", flexShrink: 0 }}>
+                    <span style={{ padding: "3px 8px", background: "var(--surface2)", border: "1px solid var(--border2)", borderRadius: 20, fontSize: 10, color: "var(--blue)", flexShrink: 0 }}>
                       {c.code}
                     </span>
                   )}

@@ -362,10 +362,7 @@ export default function LoginPage({ setAuthPage, onLogin }) {
           <button onClick={submit} disabled={loading} style={{ width: "100%", padding: "10px", background: "var(--amber)", border: "none", borderRadius: "var(--radius)", color: "#0C0E14", fontWeight: 700, cursor: "pointer", fontSize: 13, opacity: loading ? 0.7 : 1, transition: "opacity .15s" }}>
             {loading ? "Signing in..." : "Sign In"}
           </button>
-          <p style={{ textAlign: "center", marginTop: 16, fontSize: 13, color: "var(--muted)" }}>
-            Don't have an account?{" "}
-            <span onClick={() => setAuthPage("signup")} style={{ color: "var(--amber)", cursor: "pointer", fontWeight: 600 }}>Sign Up</span>
-          </p>
+    
         </div>
       </div>
     </div>
