@@ -30,6 +30,7 @@ export default function QuizPage({ config, setPage, setResults }) {
   const [tabs, setTabs] = useState(0);
   const [quitM, setQuitM] = useState(false);
   const [subM, setSubM] = useState(false);
+  const [submitSuccessModal, setSubmitSuccessModal] = useState(false);
   const PROCTOR_URL = "http://localhost:8000"; 
   const [violations, setViolations] = useState([]);
   const [showCam, setShowCam] = useState(true);
@@ -39,6 +40,7 @@ export default function QuizPage({ config, setPage, setResults }) {
   const [submitting, setSubmitting] = useState(false);            // grading + saving → variant="results"
  
   const timer = useRef();
+  const submittedRef = useRef(false);
  
   useEffect(() => {
     const loadQuizData = async () => {
@@ -128,69 +130,83 @@ useEffect(() => {
     return () => clearInterval(timer.current);
   }, []);
  
-  const doSubmit = useCallback(async () => {
-    setSubmitting(true);      // ← shows "results" loader
-    clearInterval(timer.current);
- 
-    const totalDuration = (config.time || config.duration || 15) * 60;
-    const spent = totalDuration - tLeft;
- 
-    const formattedAnswers = qs.map((q, i) => {
-      const selectedIdx = ans[i];
-      let selected_answer = null;
-      if (selectedIdx !== undefined) {
-        selected_answer = config.type === "ai"
-          ? q.options[selectedIdx].option_text
-          : String(q.options[selectedIdx].id);
-      }
-      return { question_id: q.question_id, selected_answer };
-    });
- 
-    const payload = config.type === "ai"
-      ? { attempt_id: config.attempt_id, answers: formattedAnswers, tab_switches: tabs }
-      : { attempt_id: config.attempt_id, answers: formattedAnswers, tab_switches: tabs, time_spent: spent };
- 
-    try {
-      const endpoint = config.type === "ai"
-        ? "/ai-quiz/submit"
-        : `/quizzes/${config.quiz_id}/submit`;
- 
-      const res = await API.post(endpoint, payload);
-      const submissionData = res.data;
- 
-      let finalQuestions = [];
-      if (config.type === "ai") {
-        const aiRes = await API.get(`/ai-quiz/${config.attempt_id}/answers`);
-        finalQuestions = aiRes.data;
-      } else {
-        const attemptRes = await API.get(`/attempts/${submissionData.attempt_id}/answers`);
-        finalQuestions = attemptRes.data;
-      }
- 
-      const correctCount = config.type === "ai" ? submissionData.correct_answers : submissionData.score;
-      const totalCount   = config.type === "ai" ? submissionData.total_questions : submissionData.total_possible || qs.length;
- 
-      setResults({
-        questions: finalQuestions,
-        correct: correctCount,
-        total: totalCount,
-        score: Math.round((correctCount / totalCount) * 100),
-        timeSpent: spent,
-        tabs,
-        config,
-      });
- 
-      if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
-      setSubmitting(false);
-      setPage("results");
- 
-    } catch (err) {
-      console.error("Submit failed:", err.response?.data || err);
-      setResults({ questions: [], correct: 0, total: qs.length, timeSpent: spent, tabs, config });
-      setSubmitting(false);
-      setPage("results");
+const doSubmit = useCallback(async () => {
+  if (submittedRef.current) return; // ← prevent double submission
+  submittedRef.current = true;    
+  setSubmitting(true);
+  clearInterval(timer.current);
+
+  const totalDuration = (config.time || config.duration || 15) * 60;
+  const spent = totalDuration - tLeft;
+
+  const formattedAnswers = qs.map((q, i) => {
+    const selectedIdx = ans[i];
+    let selected_answer = null;
+    if (selectedIdx !== undefined) {
+      selected_answer = config.type === "ai"
+        ? q.options[selectedIdx].option_text
+        : String(q.options[selectedIdx].id);
     }
-  }, [ans, qs, tLeft, tabs, config, setPage, setResults]);
+    return { question_id: q.question_id, selected_answer };
+  });
+
+  const payload = config.type === "ai"
+    ? { attempt_id: config.attempt_id, answers: formattedAnswers, tab_switches: tabs }
+    : { attempt_id: config.attempt_id, answers: formattedAnswers, tab_switches: tabs, time_spent: spent };
+
+  try {
+    const endpoint = config.type === "ai"
+      ? "/ai-quiz/submit"
+      : `/quizzes/${config.quiz_id}/submit`;
+
+    const res = await API.post(endpoint, payload);
+    const submissionData = res.data;
+
+    // ── Exit fullscreen regardless of result visibility ──
+    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+
+    // ── For teacher quizzes, respect show_results_immediately ──
+    if (config.type === "teacher" && !config.show_results_immediately) {
+      setSubmitting(false);
+      setSubmitSuccessModal(true);  // ← show modal ONLY, don't redirect yet
+      return;                        // ← redirect happens when user clicks OK/Go Home
+    }
+
+
+    // ── Fetch detailed answers (only if results are visible) ──
+    let finalQuestions = [];
+    if (config.type === "ai") {
+      const aiRes = await API.get(`/ai-quiz/${config.attempt_id}/answers`);
+      finalQuestions = aiRes.data;
+    } else {
+      const attemptRes = await API.get(`/attempts/${submissionData.attempt_id}/answers`);
+      finalQuestions = attemptRes.data;
+    }
+
+    const correctCount = config.type === "ai" ? submissionData.correct_answers : submissionData.score;
+    const totalCount   = config.type === "ai" ? submissionData.total_questions : submissionData.total_possible || qs.length;
+
+    setResults({
+      questions: finalQuestions,
+      correct: correctCount,
+      total: totalCount,
+      score: Math.round((correctCount / totalCount) * 100),
+      timeSpent: spent,
+      tabs,
+      config,
+    });
+
+    setSubmitting(false);
+    setPage("results");
+
+  } catch (err) {
+    console.error("Submit failed:", err.response?.data || err);
+    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+    setResults({ questions: [], correct: 0, total: qs.length, timeSpent: spent, tabs, config });
+    setSubmitting(false);
+    setPage("results");
+  }
+}, [ans, qs, tLeft, tabs, config, setPage, setResults]);
  
   // ── Loader guards — correct variant for each phase ──
   if (submitting)                        return <Loader variant="results" />;
@@ -292,9 +308,18 @@ useEffect(() => {
           <button onClick={() => setSubM(true)} style={{ marginTop: "auto", width: "100%", padding: "8px", background: "var(--surface2)", border: "1px solid var(--border2)", borderRadius: "var(--radius)", color: "var(--body)", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>Submit Test</button>
         </div>
       </div>00
- 
+
+      <ConfirmModal
+          show={submitSuccessModal}
+          title="Test Submitted!"
+          body="Your responses have been recorded. Results will be available once your teacher releases them."
+          onCancel={() => { setSubmitSuccessModal(false); setPage("home"); }}
+          onConfirm={() => { setSubmitSuccessModal(false); setPage("home"); }}
+          cancelTxt="OK"
+          confirmTxt="Go Home"
+        />
       <ConfirmModal show={quitM} title="Quit test?" body="Your progress will be lost." onCancel={() => setQuitM(false)} onConfirm={() => { if (document.fullscreenElement) document.exitFullscreen(); setPage("home"); }} cancelTxt="Cancel" confirmTxt="Quit" danger />
-      <ConfirmModal show={subM} title="Submit test?" body={`${answered}/${qs.length} answered · ${Object.keys(mrk).length} marked`} onCancel={() => setSubM(false)} onConfirm={doSubmit} cancelTxt="Review" confirmTxt="Submit" />
+      <ConfirmModal show={subM} title="Submit test?" body={`${answered}/${qs.length} answered · ${Object.keys(mrk).length} marked`} onCancel={() => setSubM(false)} onConfirm={() => { setSubM(false); doSubmit(); }}  cancelTxt="Review" confirmTxt="Submit" />
       {/* ── Proctoring: webcam thumbnail ── */}
       {showCam && (
         <div style={{

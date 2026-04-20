@@ -176,29 +176,67 @@ export default function HomePage({ setPage, setQuizConfig }) {
     }
   };
 
-  const startTeacher = async (t) => {
-    try {
-      const res = await API.get(`/quizzes/${t.id}/my-attempts`);
-      const { can_attempt, used_attempts, max_attempts } = res.data;
+const startTeacher = async (t) => {
+  try {
+    // 1. Check attempt eligibility
+    const res = await API.get(`/quizzes/${t.id}/my-attempts`);
+    const { can_attempt, used_attempts, max_attempts } = res.data;
 
-      if (!can_attempt) {
-        setAttemptsModal({ show: true, used: used_attempts, max: max_attempts });
+    if (!can_attempt) {
+      setAttemptsModal({ show: true, used: used_attempts, max: max_attempts });
+      return;
+    }
+
+    // 2. Start the attempt
+    let attempt_id, duration_minutes;
+    try {
+      const startRes = await API.post(`/attempts/start/${t.id}`);
+      attempt_id = startRes.data.attempt_id;
+      duration_minutes = startRes.data.duration_minutes;
+    } catch (startErr) {
+      const status = startErr.response?.status;
+      const detail = startErr.response?.data?.detail;
+
+      // If there's already an in-progress attempt, fetch it instead of crashing
+      if (status === 409 && detail?.includes("in-progress")) {
+        const histRes = await API.get(`/attempts/my/history`, { params: { quiz_id: t.id } });
+        const inProgress = histRes.data.find(a => a.status === "in_progress");
+        if (inProgress) {
+          attempt_id = inProgress.id;
+          duration_minutes = t.duration_minutes;
+        } else {
+          throw startErr; // unexpected, re-throw
+        }
+      } else {
+        // Show the real backend error message instead of the generic one
+        setErrorModal({
+          show: true,
+          message: detail || `Failed to start attempt (${status}). Please try again.`,
+        });
         return;
       }
-
-      setQuizConfig({
-        type: "teacher",
-        quiz_id: t.id,
-        title: t.title,
-        duration: t.duration_minutes,
-      });
-      setPage("quiz");
-
-    } catch (err) {
-      console.error("Attempt check failed", err);
-      setErrorModal({ show: true, message: "Could not verify attempt eligibility. Please try again." });
     }
-  };
+
+    // 3. Launch quiz
+    setQuizConfig({
+      type: "teacher",
+      quiz_id: t.id,
+      title: t.title,
+      duration: duration_minutes ?? t.duration_minutes,
+      attempt_id,
+      show_results_immediately: t.show_results_immediately,
+    });
+    setPage("quiz");
+
+  } catch (err) {
+    console.error("startTeacher failed:", err);
+    const detail = err.response?.data?.detail;
+    setErrorModal({
+      show: true,
+      message: detail || "Could not start the quiz. Please try again.",
+    });
+  }
+};
 
   return (
     <>
