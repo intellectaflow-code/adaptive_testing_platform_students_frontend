@@ -6,6 +6,7 @@ import API from "../api/api";
 import Loader from "../components/loader";
 
 const SUBJECTS = ["Computer Science", "Data Science", "Mathematics", "Physics", "Chemistry", "Electronics", "Others"];
+const DESCRIPTIVE_TYPES = new Set(["short", "descriptive"]);
 
 function AttemptsModal({ show, onClose, usedAttempts, maxAttempts }) {
   if (!show) return null;
@@ -19,7 +20,6 @@ function AttemptsModal({ show, onClose, usedAttempts, maxAttempts }) {
         borderRadius: "var(--radius)", padding: "28px 28px 22px",
         maxWidth: 340, width: "90%", textAlign: "center"
       }}>
-        {/* Icon */}
         <div style={{
           width: 44, height: 44, borderRadius: 10,
           background: "rgba(240,96,96,0.1)", margin: "0 auto 14px",
@@ -28,7 +28,6 @@ function AttemptsModal({ show, onClose, usedAttempts, maxAttempts }) {
         }}>
           <Icon n="lock" s={20} />
         </div>
-
         <div style={{ fontSize: 15, fontWeight: 700, color: "var(--white)", marginBottom: 8 }}>
           No Attempts Remaining
         </div>
@@ -39,16 +38,7 @@ function AttemptsModal({ show, onClose, usedAttempts, maxAttempts }) {
           allowed attempt{maxAttempts !== 1 ? "s" : ""} for this quiz.
           Contact your teacher if you need an additional attempt.
         </p>
-
-        <button
-          onClick={onClose}
-          style={{
-            width: "100%", padding: "9px",
-            background: "var(--surface2)", border: "1px solid var(--border2)",
-            borderRadius: "var(--radius)", color: "var(--body)",
-            fontSize: 13, fontWeight: 600, cursor: "pointer"
-          }}
-        >
+        <button onClick={onClose} style={{ width: "100%", padding: "9px", background: "var(--surface2)", border: "1px solid var(--border2)", borderRadius: "var(--radius)", color: "var(--body)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
           OK
         </button>
       </div>
@@ -76,23 +66,13 @@ function ErrorModal({ show, message, onClose }) {
         }}>
           <Icon n="alert-triangle" s={20} />
         </div>
-
         <div style={{ fontSize: 15, fontWeight: 700, color: "var(--white)", marginBottom: 8 }}>
           Something went wrong
         </div>
         <p style={{ color: "var(--muted)", fontSize: 13, lineHeight: 1.6, marginBottom: 22 }}>
           {message}
         </p>
-
-        <button
-          onClick={onClose}
-          style={{
-            width: "100%", padding: "9px",
-            background: "var(--surface2)", border: "1px solid var(--border2)",
-            borderRadius: "var(--radius)", color: "var(--body)",
-            fontSize: 13, fontWeight: 600, cursor: "pointer"
-          }}
-        >
+        <button onClick={onClose} style={{ width: "100%", padding: "9px", background: "var(--surface2)", border: "1px solid var(--border2)", borderRadius: "var(--radius)", color: "var(--body)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
           OK
         </button>
       </div>
@@ -123,8 +103,28 @@ export default function HomePage({ setPage, setQuizConfig }) {
     const fetchQuizzes = async () => {
       try {
         const res = await API.get("/quizzes?published_only=true");
-        console.log("QUIZZES:", res.data);
-        setTeacherTests(res.data);
+        const allQuizzes = res.data;
+
+        // ── Filter out descriptive/short-answer quizzes ──
+        // Those belong in the Assignments page, not here.
+        const checked = await Promise.allSettled(
+          allQuizzes.map(async (quiz) => {
+            try {
+              const qRes = await API.get(`/quizzes/${quiz.id}/questions`);
+              const questions = qRes.data || [];
+              const isDescriptive = questions.some((q) => DESCRIPTIVE_TYPES.has(q.question_type));
+              return isDescriptive ? null : quiz; // null = exclude
+            } catch {
+              return quiz; // if check fails, keep it to be safe
+            }
+          })
+        );
+
+        const mcqOnly = checked
+          .filter((r) => r.status === "fulfilled" && r.value !== null)
+          .map((r) => r.value);
+
+        setTeacherTests(mcqOnly);
       } catch (err) {
         console.error("Quiz fetch failed", err);
       } finally {
@@ -138,37 +138,27 @@ export default function HomePage({ setPage, setQuizConfig }) {
 
   const startAI = async () => {
     const e = {};
-
     if (!aiForm.subject) e.subject = "Required";
     if (!aiForm.topic.trim()) e.topic = "Required";
-
-    if (Object.keys(e).length) {
-      setErrs(e);
-      return;
-    }
+    if (Object.keys(e).length) { setErrs(e); return; }
 
     try {
       setLoading(true);
-
       const res = await API.post("/ai-quiz/start", {
         topic: aiForm.topic,
         difficulty: aiForm.difficulty,
         total_questions: aiForm.questions
       });
-
       const { attempt_id, questions } = res.data;
-
       setQuizConfig({
         type: "ai",
-        attempt_id: attempt_id,
+        attempt_id,
         title: aiForm.topic,
         subject: aiForm.subject,
         duration: aiForm.time,
-        questions: questions
+        questions,
       });
-
       setPage("quiz");
-
     } catch (err) {
       console.error("AI Quiz error:", err);
       setErrorModal({ show: true, message: "Failed to generate AI quiz. Please try again." });
@@ -176,73 +166,60 @@ export default function HomePage({ setPage, setQuizConfig }) {
     }
   };
 
-const startTeacher = async (t) => {
-  try {
-    // 1. Check attempt eligibility
-    const res = await API.get(`/quizzes/${t.id}/my-attempts`);
-    const { can_attempt, used_attempts, max_attempts } = res.data;
-
-    if (!can_attempt) {
-      setAttemptsModal({ show: true, used: used_attempts, max: max_attempts });
-      return;
-    }
-
-    // 2. Start the attempt
-    let attempt_id, duration_minutes;
+  const startTeacher = async (t) => {
     try {
-      const startRes = await API.post(`/attempts/start/${t.id}`);
-      attempt_id = startRes.data.attempt_id;
-      duration_minutes = startRes.data.duration_minutes;
-    } catch (startErr) {
-      const status = startErr.response?.status;
-      const detail = startErr.response?.data?.detail;
+      const res = await API.get(`/quizzes/${t.id}/my-attempts`);
+      const { can_attempt, used_attempts, max_attempts } = res.data;
 
-      // If there's already an in-progress attempt, fetch it instead of crashing
-      if (status === 409 && detail?.includes("in-progress")) {
-        const histRes = await API.get(`/attempts/my/history`, { params: { quiz_id: t.id } });
-        const inProgress = histRes.data.find(a => a.status === "in_progress");
-        if (inProgress) {
-          attempt_id = inProgress.id;
-          duration_minutes = t.duration_minutes;
-        } else {
-          throw startErr; // unexpected, re-throw
-        }
-      } else {
-        // Show the real backend error message instead of the generic one
-        setErrorModal({
-          show: true,
-          message: detail || `Failed to start attempt (${status}). Please try again.`,
-        });
+      if (!can_attempt) {
+        setAttemptsModal({ show: true, used: used_attempts, max: max_attempts });
         return;
       }
+
+      let attempt_id, duration_minutes;
+      try {
+        const startRes = await API.post(`/attempts/start/${t.id}`);
+        attempt_id = startRes.data.attempt_id;
+        duration_minutes = startRes.data.duration_minutes;
+      } catch (startErr) {
+        const status = startErr.response?.status;
+        const detail = startErr.response?.data?.detail;
+        if (status === 409 && detail?.includes("in-progress")) {
+          const histRes = await API.get(`/attempts/my/history`, { params: { quiz_id: t.id } });
+          const inProgress = histRes.data.find(a => a.status === "in_progress");
+          if (inProgress) {
+            attempt_id = inProgress.id;
+            duration_minutes = t.duration_minutes;
+          } else {
+            throw startErr;
+          }
+        } else {
+          setErrorModal({ show: true, message: detail || `Failed to start attempt (${status}). Please try again.` });
+          return;
+        }
+      }
+
+      setQuizConfig({
+        type: "teacher",
+        quiz_id: t.id,
+        title: t.title,
+        duration: duration_minutes ?? t.duration_minutes,
+        attempt_id,
+        show_results_immediately: t.show_results_immediately,
+      });
+      setPage("quiz");
+
+    } catch (err) {
+      console.error("startTeacher failed:", err);
+      const detail = err.response?.data?.detail;
+      setErrorModal({ show: true, message: detail || "Could not start the quiz. Please try again." });
     }
-
-    // 3. Launch quiz
-    setQuizConfig({
-      type: "teacher",
-      quiz_id: t.id,
-      title: t.title,
-      duration: duration_minutes ?? t.duration_minutes,
-      attempt_id,
-      show_results_immediately: t.show_results_immediately,
-    });
-    setPage("quiz");
-
-  } catch (err) {
-    console.error("startTeacher failed:", err);
-    const detail = err.response?.data?.detail;
-    setErrorModal({
-      show: true,
-      message: detail || "Could not start the quiz. Please try again.",
-    });
-  }
-};
+  };
 
   return (
     <>
       {loading && <Loader variant="test" />}
 
-      {/* Modals */}
       <AttemptsModal
         show={attemptsModal.show}
         onClose={() => setAttemptsModal({ show: false, used: 0, max: 0 })}
@@ -263,7 +240,6 @@ const startTeacher = async (t) => {
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
 
-
           {/* AI Test Card */}
           <div style={card({ padding: 22 })}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
@@ -271,7 +247,7 @@ const startTeacher = async (t) => {
                 <Icon n="brain" s={15} />
               </div>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--white)" }}>AI Adaptive Test</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--white)" }}>Smart Test</div>
                 <div style={{ fontSize: 11, color: "var(--muted)" }}>Personalised question set</div>
               </div>
             </div>
@@ -317,118 +293,76 @@ const startTeacher = async (t) => {
                 style={{ width: "100%", padding: "10px", background: "var(--amber)", border: "none", borderRadius: "var(--radius)", color: "#0C0E14", fontSize: 13, fontWeight: 700, cursor: "pointer", marginTop: 2 }}
                 onMouseEnter={(e) => (e.currentTarget.style.opacity = ".85")}
                 onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}>
-                Start AI Test
+                Start Test
               </button>
             </div>
           </div>
 
-          {/* Teacher Tests */}
-          <div style={card({
-            padding: 22,
-            height: 420,
-            display: "flex",
-            flexDirection: "column"
-          })}>
-            {/* Header */}
+          {/* Teacher Tests — MCQ only */}
+          <div style={card({ padding: 22, height: 420, display: "flex", flexDirection: "column" })}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
-              <div style={{
-                width: 30, height: 30, borderRadius: 8,
-                background: "rgba(96,165,250,0.1)", display: "flex",
-                alignItems: "center", justifyContent: "center",
-                color: "var(--blue)", flexShrink: 0
-              }}>
+              <div style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(96,165,250,0.1)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--blue)", flexShrink: 0 }}>
                 <Icon n="book" s={15} />
               </div>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--white)" }}>Teacher Tests</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--white)" }}>Scheduled Tests</div>
                 <div style={{ fontSize: 11, color: "var(--muted)" }}>Live & upcoming scheduled tests</div>
               </div>
             </div>
 
-            {/* Scrollable list */}
-            <div style={{
-              flex: 1, overflowY: "auto", display: "flex",
-              flexDirection: "column", gap: 9, paddingRight: 4
-            }}>
+            <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 9, paddingRight: 4 }}>
               {testsLoading ? (
                 <div style={{ color: "var(--muted)", fontSize: 12 }}>Loading tests...</div>
               ) : teacherTests.length === 0 ? (
-                <div style={{ color: "var(--muted)", fontSize: 12 }}>No tests available</div>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, gap: 8, opacity: 0.6 }}>
+                  <Icon n="book" s={22} />
+                  <span style={{ color: "var(--muted)", fontSize: 12, textAlign: "center" }}>
+                    No MCQ tests available.<br />Descriptive assignments are in the Assignments page.
+                  </span>
+                </div>
               ) : (
                 teacherTests.map((t) => {
                   const now = new Date();
                   const start = t.start_time ? new Date(t.start_time) : null;
                   const end = t.end_time ? new Date(t.end_time) : null;
-
                   const status =
                     start && end
-                      ? now >= start && now <= end
-                        ? "live"
-                        : now < start
-                        ? "upcoming"
-                        : "ended"
+                      ? now >= start && now <= end ? "live"
+                        : now < start ? "upcoming" : "ended"
                       : "upcoming";
 
                   return (
-                    <div key={t.id} style={{
-                      background: "var(--bg)", border: "1px solid var(--border2)",
-                      borderRadius: "var(--radius)", padding: "13px 15px"
-                    }}>
-                      {/* Title + Status */}
+                    <div key={t.id} style={{ background: "var(--bg)", border: "1px solid var(--border2)", borderRadius: "var(--radius)", padding: "13px 15px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)" }}>
                             {t.course_name}
                             {t.teacher_name && (
-                              <span style={{ fontSize: 11, fontWeight: 400, color: "var(--muted)", marginLeft: 8 }}>
-                                {t.teacher_name}
-                              </span>
+                              <span style={{ fontSize: 11, fontWeight: 400, color: "var(--muted)", marginLeft: 8 }}>{t.teacher_name}</span>
                             )}
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
                             <span style={{ fontSize: 11, color: "var(--muted)", display: "flex", alignItems: "center", gap: 5, marginLeft: 1 }}>
                               <Icon n="book-open" s={15} /> {t.title}
                             </span>
-                            <span style={{
-                              padding: "2px 7px", fontSize: 10, borderRadius: 999,
-                              fontWeight: 500, color: "var(--blue)", background: "rgba(96,165,250,0.1)"
-                            }}>
+                            <span style={{ padding: "2px 7px", fontSize: 10, borderRadius: 999, fontWeight: 500, color: "var(--blue)", background: "rgba(96,165,250,0.1)" }}>
                               {t.course_code}
                             </span>
                           </div>
                         </div>
-
-                        {/* Status badge */}
-                        <span style={{
-                          fontSize: 10, padding: "2px 8px", borderRadius: 6, fontWeight: 500,
-                          color: status === "live" ? "var(--green)" : "var(--amber)",
-                          background: status === "live" ? "rgba(74,222,128,0.12)" : "rgba(240,165,0,0.12)",
-                          display: "flex", alignItems: "center", gap: 4
-                        }}>
-                          <span style={{
-                            width: 5, height: 5, borderRadius: "50%",
-                            background: status === "live" ? "var(--green)" : "var(--amber)"
-                          }} />
+                        <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, fontWeight: 500, color: status === "live" ? "var(--green)" : "var(--amber)", background: status === "live" ? "rgba(74,222,128,0.12)" : "rgba(240,165,0,0.12)", display: "flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ width: 5, height: 5, borderRadius: "50%", background: status === "live" ? "var(--green)" : "var(--amber)" }} />
                           {status === "live" ? "Live" : "Upcoming"}
                         </span>
                       </div>
-
-                      {/* Meta */}
                       <div style={{ display: "flex", gap: 12, fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>
                         <span><Icon n="clock" s={10} /> {t.duration_minutes} min</span>
                         <span><Icon n="book" s={10} /> {t.question_count} Qs</span>
                       </div>
-
-                      {/* Start button — only for live tests */}
                       {status === "live" && (
                         <button
                           onClick={() => startTeacher(t)}
-                          style={{
-                            width: "100%", padding: "10px",
-                            background: "var(--amber)", border: "none",
-                            borderRadius: "var(--radius)", color: "#0C0E14",
-                            fontSize: 13, fontWeight: 700, cursor: "pointer", marginTop: 2
-                          }}
+                          style={{ width: "100%", padding: "10px", background: "var(--amber)", border: "none", borderRadius: "var(--radius)", color: "#0C0E14", fontSize: 13, fontWeight: 700, cursor: "pointer", marginTop: 2 }}
                           onMouseEnter={(e) => (e.currentTarget.style.opacity = ".85")}
                           onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
                         >

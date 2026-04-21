@@ -20,6 +20,10 @@ const SEMESTERS = [
   "Semester 5", "Semester 6", "Semester 7", "Semester 8"
 ];
 
+const style = document.createElement("style");
+style.textContent = `@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`;
+document.head.appendChild(style);
+
 const Field = ({ label, k, form, setForm, disabled = false, type = "text", inputStyle }) => (
   <div>
     <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 5 }}>
@@ -39,31 +43,28 @@ const Field = ({ label, k, form, setForm, disabled = false, type = "text", input
 const ProfilePhotoField = ({ student, onPhotoChange, uploading }) => {
   const fileInputRef = useRef(null);
   const [preview, setPreview] = useState(null);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
-    // Use existing photo from student if available
     setPreview(student?.profile_photo || student?.avatar || null);
   }, [student]);
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
-    // Validate type
     if (!file.type.startsWith("image/")) {
       alert("Please select an image file.");
       return;
     }
-    // Validate size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       alert("Image must be smaller than 5MB.");
       return;
     }
-
     const objectUrl = URL.createObjectURL(file);
     setPreview(objectUrl);
     onPhotoChange(file);
   };
+
 
   const handleRemove = () => {
     setPreview(null);
@@ -75,91 +76,140 @@ const ProfilePhotoField = ({ student, onPhotoChange, uploading }) => {
     ? student.full_name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2)
     : "?";
 
+
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 18, paddingBottom: 18, borderBottom: "1px solid var(--border2)" }}>
-      {/* Avatar circle */}
-      <div style={{ position: "relative", flexShrink: 0 }}>
-        <div style={{
-          width: 72, height: 72, borderRadius: "50%",
-          background: preview ? "transparent" : "var(--surface2)",
-          border: "2px solid var(--border2)",
-          overflow: "hidden",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 22, fontWeight: 700, color: "var(--amber)",
-        }}>
-          {preview
-            ? <img src={preview} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            : initials
-          }
-        </div>
+    <>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 18, paddingBottom: 18, borderBottom: "1px solid var(--border2)" }}>
+        {/* Avatar circle */}
+        <div style={{ position: "relative", flexShrink: 0 }}>
+          <div
+            style={{
+              width: 72, height: 72, borderRadius: "50%",
+              background: preview ? "transparent" : "var(--surface2)",
+              border: "2px solid var(--border2)",
+              overflow: "hidden",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 22, fontWeight: 700, color: "var(--amber)",
+              cursor: preview ? "pointer" : "default",
+            }}
+            onClick={() => preview && setExpanded(true)}
+          >
+            {preview
+              ? <img src={preview} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              : initials
+            }
+          </div>
 
-        {/* Camera badge */}
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          title="Change photo"
-          style={{
-            position: "absolute", bottom: 0, right: 0,
-            width: 24, height: 24, borderRadius: "50%",
-            background: "var(--amber)", border: "2px solid var(--bg)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: uploading ? "not-allowed" : "pointer",
-            padding: 0, opacity: uploading ? 0.6 : 1,
-          }}
-        >
-          <Icon n="camera" s={11} style={{ color: "#0C0E14" }} />
-        </button>
-      </div>
-
-      {/* Text + actions */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--white)" }}>Profile Photo</span>
-        <span style={{ fontSize: 11, color: "var(--muted)" }}>JPG, PNG or WebP · Max 5 MB</span>
-        <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
+          {/* Camera badge */}
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
+            title="Change photo"
             style={{
-              padding: "5px 11px", fontSize: 11, fontWeight: 600,
-              background: "var(--surface2)", border: "1px solid var(--border2)",
-              borderRadius: "var(--radius)", color: "var(--body)",
+              position: "absolute", bottom: 0, right: 0,
+              width: 24, height: 24, borderRadius: "50%",
+              background: "var(--amber)", border: "2px solid var(--bg)",
+              display: "flex", alignItems: "center", justifyContent: "center",
               cursor: uploading ? "not-allowed" : "pointer",
-              display: "flex", alignItems: "center", gap: 5,
-              opacity: uploading ? 0.6 : 1,
+              padding: 0, opacity: uploading ? 0.6 : 1,
             }}
           >
-            {uploading ? <Icon n="loader" s={11} /> : <Icon n="upload" s={11} />}
-            {uploading ? "Uploading..." : preview ? "Change" : "Upload"}
+            <Icon n="camera" s={11} style={{ color: "#0C0E14" }} />
           </button>
+        </div>
 
-          {preview && !uploading && (
+        {/* Text + actions */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--white)" }}>Profile Photo</span>
+          <span style={{ fontSize: 11, color: "var(--muted)" }}>JPG, PNG or WebP · Max 5 MB</span>
+          <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
             <button
-              onClick={handleRemove}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
               style={{
                 padding: "5px 11px", fontSize: 11, fontWeight: 600,
-                background: "transparent", border: "1px solid var(--border2)",
-                borderRadius: "var(--radius)", color: "var(--red)",
-                cursor: "pointer",
+                background: "var(--surface2)", border: "1px solid var(--border2)",
+                borderRadius: "var(--radius)", color: "var(--body)",
+                cursor: uploading ? "not-allowed" : "pointer",
+                display: "flex", alignItems: "center", gap: 5,
+                opacity: uploading ? 0.6 : 1,
               }}
             >
-              Remove
+              {uploading ? <Icon n="loader" s={14} style={{
+                  animation: "spin 1s linear infinite",
+                  display: "inline-block",
+                  transformOrigin: "center",
+                }} /> : <Icon n="upload" s={11} />}
+              {uploading ? "Uploading..." : preview ? "Change" : "Upload"}
             </button>
-          )}
+
+            {preview && !uploading && (
+              <button
+                onClick={handleRemove}
+                style={{
+                  padding: "5px 11px", fontSize: 11, fontWeight: 600,
+                  background: "transparent", border: "1px solid var(--border2)",
+                  borderRadius: "var(--radius)", color: "var(--red)",
+                  cursor: "pointer",
+                }}
+              >
+                Remove
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          onChange={handleFileChange}
+          style={{ display: "none" }}
+        />
       </div>
 
-      {/* Hidden file input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        onChange={handleFileChange}
-        style={{ display: "none" }}
-      />
-    </div>
+      {/* ── Lightbox — inside the fragment, inside the component ── */}
+      {expanded && (
+        <div
+          onClick={() => setExpanded(false)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 1000,
+            background: "rgba(0,0,0,0.85)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "zoom-out",
+          }}
+        >
+          <img
+            src={preview}
+            alt="Profile"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: "90vw", maxHeight: "90vh",
+              borderRadius: 12,
+              boxShadow: "0 8px 48px rgba(0,0,0,0.6)",
+              objectFit: "contain",
+              cursor: "default",
+            }}
+          />
+          <button
+            onClick={() => setExpanded(false)}
+            style={{
+              position: "absolute", top: 20, right: 24,
+              background: "rgba(255,255,255,0.1)",
+              border: "1px solid rgba(255,255,255,0.2)",
+              borderRadius: "50%", width: 36, height: 36,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", color: "var(--white)",
+            }}
+          >
+            <Icon n="x" s={16} />
+          </button>
+        </div>
+      )}
+    </>
   );
 };
-
 export default function EditProfilePage({ student, setStudent, setPage }) {
   const [saved, setSaved]           = useState(false);
   const [pw, setPw]                 = useState({ cur: "", np: "", cp: "" });

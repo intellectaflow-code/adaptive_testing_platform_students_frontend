@@ -10,6 +10,7 @@ export default function ProfilePage({ student, setPage }) {
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [attempts, setAttempts]             = useState([]);
   const [loadingStats, setLoadingStats]     = useState(true);
+  const [photoExpanded, setPhotoExpanded] = useState(false);
  
   useEffect(() => {
     const fetchCourses = async () => {
@@ -102,7 +103,17 @@ export default function ProfilePage({ student, setPage }) {
       {/* ── Profile header ── */}
       <div style={card({ padding: "24px 26px", marginBottom: 12 })}>
         <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-        <div style={{ width: 62, height: 62, borderRadius: "50%", background: "var(--amber)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 800, color: "#0C0E14", flexShrink: 0, overflow: "hidden", padding: 0 }}>
+        <div
+          style={{
+            width: 62, height: 62, borderRadius: "50%",
+            background: "var(--amber)", display: "flex",
+            alignItems: "center", justifyContent: "center",
+            fontSize: 20, fontWeight: 800, color: "#0C0E14",
+            flexShrink: 0, overflow: "hidden", padding: 0,
+            cursor: student?.profile_photo ? "pointer" : "default",
+          }}
+          onClick={() => student?.profile_photo && setPhotoExpanded(true)}
+        >
           {student?.profile_photo
             ? <img src={student.profile_photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
             : initials(student.full_name)
@@ -176,6 +187,43 @@ export default function ProfilePage({ student, setPage }) {
           </div>
         )}
       </div>
+          {photoExpanded && (
+      <div
+        onClick={() => setPhotoExpanded(false)}
+        style={{
+          position: "fixed", inset: 0, zIndex: 1000,
+          background: "rgba(0,0,0,0.85)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          cursor: "zoom-out",
+        }}
+      >
+        <img
+          src={student.profile_photo}
+          alt="Profile"
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            maxWidth: "90vw", maxHeight: "90vh",
+            borderRadius: 12,
+            boxShadow: "0 8px 48px rgba(0,0,0,0.6)",
+            objectFit: "contain",
+            cursor: "default",
+          }}
+        />
+        <button
+          onClick={() => setPhotoExpanded(false)}
+          style={{
+            position: "absolute", top: 20, right: 24,
+            background: "rgba(255,255,255,0.1)",
+            border: "1px solid rgba(255,255,255,0.2)",
+            borderRadius: "50%", width: 36, height: 36,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer", color: "var(--white)",
+          }}
+        >
+          <Icon n="x" s={16} />
+        </button>
+      </div>
+    )}
     </div>
   );
 }

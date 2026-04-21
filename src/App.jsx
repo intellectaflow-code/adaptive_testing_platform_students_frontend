@@ -15,6 +15,7 @@ import ProfilePage from "./pages/ProfilePage";
 import EditProfilePage from "./pages/EditProfilePage";
 import SettingsPage from "./pages/SettingsPage";
 import API from "./api/api";
+import AssignmentsPage from "./pages/AssignmentsPage";
 
 // Data + utils
 
@@ -137,6 +138,7 @@ const handleLogout = () => {
                 {page === "dashboard"      && <DashboardPage setPage={setPage} setAttemptResult={setAttemptResult} />}
                 {page === "announcements" && (<AnnouncementsPage announcements={announcements} setAnnouncements={setAnnouncements} readIds={readIds} markAllRead={markAllRead}/>)}
                 {page === "settings"       && <SettingsPage theme={theme} setTheme={setTheme} />}
+                {page === "assignments"    && <AssignmentsPage setPage={setPage} setQuizConfig={setQuizConfig} />}
               </main>
             </div>
           </>

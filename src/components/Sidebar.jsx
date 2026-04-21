@@ -5,6 +5,7 @@ import { initials } from "../utils/styles";
 const NAV_ITEMS = [
   { id: "home",          n: "home",      label: "Home" },
   { id: "dashboard",     n: "chart",     label: "Dashboard" },
+  { id: "assignments",   n: "file-text", label: "Assignments" },
   { id: "announcements", n: "megaphone", label: "Announcements" },
   { id: "profile",       n: "user",      label: "Profile" },
   { id: "settings",      n: "settings",  label: "Settings" },
