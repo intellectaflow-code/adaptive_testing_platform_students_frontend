@@ -3,28 +3,6 @@ import Icon from "../components/Icon";
 import { card } from "../utils/styles";
 import API from "../api/api";
 
-// ── Descriptive quiz types ──
-const DESCRIPTIVE_TYPES = new Set(["short", "descriptive"]);
-
-function AttemptsModal({ show, onClose, usedAttempts, maxAttempts }) {
-  if (!show) return null;
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.65)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 400 }}>
-      <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "28px 28px 22px", maxWidth: 340, width: "90%", textAlign: "center" }}>
-        <div style={{ width: 44, height: 44, borderRadius: 10, background: "rgba(240,96,96,0.1)", margin: "0 auto 14px", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--red)" }}>
-          <Icon n="lock" s={20} />
-        </div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: "var(--white)", marginBottom: 8 }}>No Attempts Remaining</div>
-        <p style={{ color: "var(--muted)", fontSize: 13, lineHeight: 1.6, marginBottom: 22 }}>
-          You have used <strong style={{ color: "var(--white)" }}>{usedAttempts}</strong> of{" "}
-          <strong style={{ color: "var(--white)" }}>{maxAttempts}</strong> allowed attempt{maxAttempts !== 1 ? "s" : ""} for this assignment. Contact your teacher for an additional attempt.
-        </p>
-        <button onClick={onClose} style={{ width: "100%", padding: "9px", background: "var(--surface2)", border: "1px solid var(--border2)", borderRadius: "var(--radius)", color: "var(--body)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>OK</button>
-      </div>
-    </div>
-  );
-}
-
 function ErrorModal({ show, message, onClose }) {
   if (!show) return null;
   return (
@@ -35,7 +13,12 @@ function ErrorModal({ show, message, onClose }) {
         </div>
         <div style={{ fontSize: 15, fontWeight: 700, color: "var(--white)", marginBottom: 8 }}>Something went wrong</div>
         <p style={{ color: "var(--muted)", fontSize: 13, lineHeight: 1.6, marginBottom: 22 }}>{message}</p>
-        <button onClick={onClose} style={{ width: "100%", padding: "9px", background: "var(--surface2)", border: "1px solid var(--border2)", borderRadius: "var(--radius)", color: "var(--body)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>OK</button>
+        <button
+          onClick={onClose}
+          style={{ width: "100%", padding: "9px", background: "var(--surface2)", border: "1px solid var(--border2)", borderRadius: "var(--radius)", color: "var(--body)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+        >
+          OK
+        </button>
       </div>
     </div>
   );
@@ -46,7 +29,7 @@ function StatusBadge({ status }) {
   const cfg = {
     live:     { label: "Live",     bg: "rgba(74,222,128,0.12)",  color: "var(--green)" },
     upcoming: { label: "Upcoming", bg: "rgba(240,165,0,0.12)",   color: "var(--amber)" },
-    ended:    { label: "Ended",    bg: "rgba(240,96,96,0.10)",    color: "var(--red)"   },
+    ended:    { label: "Ended",    bg: "rgba(240,96,96,0.10)",   color: "var(--red)"   },
   }[status] || { label: status, bg: "var(--surface2)", color: "var(--muted)" };
 
   return (
@@ -57,142 +40,99 @@ function StatusBadge({ status }) {
   );
 }
 
+// ── Derive live/upcoming/ended from assignment start_time / due_time ──
+function getStatus(assignment) {
+  const now = new Date();
+  const start = assignment.start_time ? new Date(assignment.start_time) : null;
+  const due   = assignment.due_time   ? new Date(assignment.due_time)   : null;
+
+  if (start && due) {
+    if (now >= start && now <= due) return "live";
+    if (now < start)               return "upcoming";
+    return "ended";
+  }
+  // No window set — treat as always live if published
+  return "live";
+}
+
+function formatDate(dt) {
+  if (!dt) return null;
+  return new Date(dt).toLocaleString("en-IN", {
+    day: "2-digit", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit", hour12: true,
+  });
+}
+
 export default function AssignmentsPage({ setPage, setQuizConfig }) {
   const [assignments, setAssignments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [starting, setStarting] = useState(null); // quiz id being started
-  const [attemptsModal, setAttemptsModal] = useState({ show: false, used: 0, max: 0 });
-  const [errorModal, setErrorModal] = useState({ show: false, message: "" });
+  const [loading, setLoading]         = useState(true);
+  const [starting, setStarting]       = useState(null); // assignment id being started
+  const [errorModal, setErrorModal]   = useState({ show: false, message: "" });
 
+  // ── Fetch all published assignments from the new router ──
   useEffect(() => {
-    const fetchDescriptiveQuizzes = async () => {
+    const fetchAssignments = async () => {
       try {
         setLoading(true);
-        // Fetch all published quizzes the student can see
-        const res = await API.get("/quizzes?published_only=true");
-        const allQuizzes = res.data;
-
-        // For each quiz, peek at its questions to check if any are descriptive
-        // We batch-check using Promise.allSettled to avoid failing on one bad request
-        const checked = await Promise.allSettled(
-          allQuizzes.map(async (quiz) => {
-            try {
-              const qRes = await API.get(`/quizzes/${quiz.id}/questions`);
-              const questions = qRes.data || [];
-              const hasDescriptive = questions.some(
-                (q) => DESCRIPTIVE_TYPES.has(q.question_type)
-              );
-              return hasDescriptive ? { ...quiz, _questions: questions } : null;
-            } catch {
-              return null;
-            }
-          })
-        );
-
-        const descriptiveOnly = checked
-          .filter((r) => r.status === "fulfilled" && r.value !== null)
-          .map((r) => r.value);
-
-        setAssignments(descriptiveOnly);
+        // GET /assignments/available/list  →  returns published teacher_assignments
+        const res = await API.get("/assignments/available/list");
+        setAssignments(res.data || []);
       } catch (err) {
         console.error("Failed to load assignments", err);
+        setErrorModal({ show: true, message: "Could not load assignments. Please try again." });
       } finally {
         setLoading(false);
       }
     };
 
-    fetchDescriptiveQuizzes();
+    fetchAssignments();
   }, []);
 
-  const getStatus = (quiz) => {
-    const now = new Date();
-    const start = quiz.start_time ? new Date(quiz.start_time) : null;
-    const end = quiz.end_time ? new Date(quiz.end_time) : null;
-    if (start && end) {
-      if (now >= start && now <= end) return "live";
-      if (now < start) return "upcoming";
-      return "ended";
-    }
-    return "upcoming";
-  };
-
-  const startAssignment = async (quiz) => {
+  // ── Start / resume a submission ──
+  const startAssignment = async (assignment) => {
     try {
-      setStarting(quiz.id);
+      setStarting(assignment.id);
 
-      // 1. Check eligibility
-      const eligRes = await API.get(`/quizzes/${quiz.id}/my-attempts`);
-      const { can_attempt, used_attempts, max_attempts } = eligRes.data;
+      // POST /assignments/{id}/start
+      // → returns { submission_id } (idempotent — resumes if already in_progress)
+      const startRes = await API.post(`/assignments/${assignment.id}/start`);
+      const { submission_id } = startRes.data;
 
-      if (!can_attempt) {
-        setAttemptsModal({ show: true, used: used_attempts, max: max_attempts });
-        setStarting(null);
-        return;
-      }
+      // Fetch full assignment detail to get questions
+      // GET /assignments/{id}  →  { ...assignment, questions: [...] }
+      const detailRes = await API.get(`/assignments/${assignment.id}`);
+      const detail    = detailRes.data;
 
-      // 2. Start the attempt
-      let attempt_id, duration_minutes;
-      try {
-        const startRes = await API.post(`/attempts/start/${quiz.id}`);
-        attempt_id = startRes.data.attempt_id;
-        duration_minutes = startRes.data.duration_minutes;
-      } catch (startErr) {
-        const status = startErr.response?.status;
-        const detail = startErr.response?.data?.detail;
-
-        if (status === 409 && detail?.includes("in-progress")) {
-          const histRes = await API.get(`/attempts/my/history`, { params: { quiz_id: quiz.id } });
-          const inProgress = histRes.data.find((a) => a.status === "in_progress");
-          if (inProgress) {
-            attempt_id = inProgress.id;
-            duration_minutes = quiz.duration_minutes;
-          } else {
-            throw startErr;
-          }
-        } else {
-          setErrorModal({ show: true, message: detail || `Failed to start attempt (${status}). Please try again.` });
-          setStarting(null);
-          return;
-        }
-      }
-
-      // 3. Launch quiz in descriptive mode
       setQuizConfig({
-        type: "teacher",
-        quiz_id: quiz.id,
-        title: quiz.title,
-        duration: duration_minutes ?? quiz.duration_minutes,
-        attempt_id,
-        show_results_immediately: false, // descriptive always hides results
-        quiz_mode: "descriptive",        // ← signal to QuizPage to use textarea
+        type:                   "teacher_assignment",
+        assignment_id:          assignment.id,
+        submission_id,
+        title:                  assignment.title,
+        total_marks:            assignment.total_marks,
+        passing_marks:          assignment.passing_marks,
+        due_time:               assignment.due_time,
+        allow_late_submission:  assignment.allow_late_submission,
+        questions:              detail.questions || [],
+        quiz_mode:              "descriptive",
+        show_results_immediately: false,
       });
-      setPage("quiz");
 
+      setPage("quiz");
     } catch (err) {
       console.error("startAssignment failed:", err);
       const detail = err.response?.data?.detail;
-      setErrorModal({ show: true, message: detail || "Could not start the assignment. Please try again." });
+      const status = err.response?.status;
+      setErrorModal({
+        show: true,
+        message: detail || `Could not start the assignment (${status ?? "unknown error"}). Please try again.`,
+      });
     } finally {
       setStarting(null);
     }
   };
 
-  const formatDate = (dt) => {
-    if (!dt) return null;
-    return new Date(dt).toLocaleString("en-IN", {
-      day: "2-digit", month: "short", year: "numeric",
-      hour: "2-digit", minute: "2-digit", hour12: true,
-    });
-  };
-
   return (
     <>
-      <AttemptsModal
-        show={attemptsModal.show}
-        onClose={() => setAttemptsModal({ show: false, used: 0, max: 0 })}
-        usedAttempts={attemptsModal.used}
-        maxAttempts={attemptsModal.max}
-      />
       <ErrorModal
         show={errorModal.show}
         message={errorModal.message}
@@ -209,7 +149,7 @@ export default function AssignmentsPage({ setPage, setQuizConfig }) {
             <h1 style={{ fontSize: 18, fontWeight: 700, color: "var(--white)", margin: 0 }}>Assignments</h1>
           </div>
           <p style={{ color: "var(--muted)", fontSize: 13, marginLeft: 42 }}>
-            Written descriptive tests assigned by your teachers
+            Written descriptive assignments assigned by your teachers
           </p>
         </div>
 
@@ -229,78 +169,70 @@ export default function AssignmentsPage({ setPage, setQuizConfig }) {
               <Icon n="file-text" s={22} />
             </div>
             <div style={{ fontSize: 14, fontWeight: 600, color: "var(--white)", marginBottom: 6 }}>No assignments yet</div>
-            <p style={{ color: "var(--muted)", fontSize: 13 }}>Descriptive assignments from your teachers will appear here.</p>
+            <p style={{ color: "var(--muted)", fontSize: 13 }}>Assignments from your teachers will appear here once published.</p>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {assignments.map((quiz) => {
-              const status = getStatus(quiz);
+            {assignments.map((assignment) => {
+              const status     = getStatus(assignment);
               const isStartable = status === "live";
-              const isStarting_ = starting === quiz.id;
+              const isStarting_ = starting === assignment.id;
 
               return (
-                <div key={quiz.id} style={card({ padding: "18px 20px" })}>
+                <div key={assignment.id} style={card({ padding: "18px 20px" })}>
                   <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
+
                     {/* Left: info */}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      {/* Course + teacher */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--white)" }}>{quiz.course_name}</span>
-                        {quiz.course_code && (
-                          <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 999, fontWeight: 500, color: "var(--blue)", background: "rgba(96,165,250,0.1)" }}>
-                            {quiz.course_code}
-                          </span>
-                        )}
-                      </div>
-
                       {/* Title */}
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                         <Icon n="book-open" s={13} style={{ color: "var(--muted)" }} />
-                        <span style={{ fontSize: 13, color: "var(--body)" }}>{quiz.title}</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: "var(--white)" }}>
+                          {assignment.title}
+                        </span>
                       </div>
+
+                      {/* Description */}
+                      {assignment.description && (
+                        <p style={{ fontSize: 12, color: "var(--muted)", marginBottom: 10, lineHeight: 1.5 }}>
+                          {assignment.description}
+                        </p>
+                      )}
 
                       {/* Meta row */}
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 14, fontSize: 11, color: "var(--muted)" }}>
-                        {quiz.duration_minutes && (
+                        {assignment.total_marks != null && (
                           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            <Icon n="clock" s={11} /> {quiz.duration_minutes} min
+                            <Icon n="award" s={14} /> {assignment.total_marks} marks
                           </span>
                         )}
-                        {quiz.question_count !== undefined && (
+                        {assignment.passing_marks != null && (
                           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            <Icon n="list" s={11} /> {quiz.question_count} question{quiz.question_count !== 1 ? "s" : ""}
+                            <Icon n="check-circle" s={11} /> Pass: {assignment.passing_marks}
                           </span>
                         )}
-                        {quiz.teacher_name && (
+                        {assignment.start_time && (
                           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            <Icon n="user" s={11} /> {quiz.teacher_name}
+                            <Icon n="calendar" s={11} /> Starts {formatDate(assignment.start_time)}
                           </span>
                         )}
-                        {quiz.start_time && (
+                        {assignment.due_time && (
                           <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            <Icon n="calendar" s={11} /> Starts {formatDate(quiz.start_time)}
+                            <Icon n="clock" s={11} /> Due {formatDate(assignment.due_time)}
                           </span>
                         )}
-                        {quiz.end_time && (
-                          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            <Icon n="clock" s={11} /> Due {formatDate(quiz.end_time)}
+                        {assignment.allow_late_submission && (
+                          <span style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--amber)" }}>
+                            <Icon n="clock" s={11} /> Late submissions allowed
                           </span>
                         )}
                       </div>
 
-                      {/* Descriptive type tags */}
+                      {/* Tags */}
                       <div style={{ display: "flex", gap: 5, marginTop: 10, flexWrap: "wrap" }}>
-                        {(quiz._questions || [])
-                          .filter((q) => DESCRIPTIVE_TYPES.has(q.question_type))
-                          .reduce((acc, q) => {
-                            if (!acc.includes(q.question_type)) acc.push(q.question_type);
-                            return acc;
-                          }, [])
-                          .map((type) => (
-                            <span key={type} style={{ fontSize: 10, padding: "2px 7px", borderRadius: 5, background: "rgba(96,165,250,0.08)", color: "var(--blue)", fontWeight: 600, textTransform: "capitalize" }}>
-                              {type === "short" ? "Short Answer" : "Descriptive"}
-                            </span>
-                          ))}
+                        <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 5, background: "rgba(96,165,250,0.08)", color: "var(--blue)", fontWeight: 600 }}>
+                          Descriptive
+                        </span>
                         <span style={{ fontSize: 10, padding: "2px 7px", borderRadius: 5, background: "rgba(240,165,0,0.08)", color: "var(--amber)", fontWeight: 600 }}>
                           Results after review
                         </span>
@@ -313,7 +245,7 @@ export default function AssignmentsPage({ setPage, setQuizConfig }) {
 
                       {isStartable && (
                         <button
-                          onClick={() => startAssignment(quiz)}
+                          onClick={() => startAssignment(assignment)}
                           disabled={isStarting_}
                           style={{
                             padding: "8px 18px",

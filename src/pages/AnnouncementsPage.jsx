@@ -18,21 +18,20 @@ export default function AnnouncementsPage({ announcements, setAnnouncements, rea
     ? announcements.filter(a => new Date(a.created_at) >= oneWeekAgo)
     : announcements;
  
-  useEffect(() => {
-    const fetchAnnouncements = async () => {
-      try {
-        const res = await API.get("/announcements");
-        setAnnouncements(res.data);
-        markAllRead(res.data.map(a => a.id));
-      } catch (err) {
-        console.error("Failed to fetch announcements", err);
-      } finally {
-        setLoading(false);
-      }
-    };
- 
-    fetchAnnouncements();
-  }, []);
+useEffect(() => {
+  const fetchAnnouncements = async () => {
+    try {
+      const res = await API.get("/announcements");
+      setAnnouncements(res.data);
+      markAllRead(res.data.map(a => a.id)); // still fine to call here
+    } catch (err) {
+      console.error("Failed to fetch announcements", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchAnnouncements();
+}, []);
  
   if (loading) return <Loader variant="announcements" />;
  
