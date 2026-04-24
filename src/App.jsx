@@ -16,6 +16,7 @@ import ProfilePage from "./pages/ProfilePage";
 import EditProfilePage from "./pages/EditProfilePage";
 import SettingsPage from "./pages/SettingsPage";
 import AssignmentsPage from "./pages/AssignmentsPage";
+import AssignmentsResultsPage from "./pages/AssignmentsResultsPage";
 
 import API from "./api/api";
 import { getThemeTokens } from "./utils/theme";
@@ -24,15 +25,20 @@ export default function App() {
   const [theme, setTheme] = useState("dark");
   const [authPage, setAuthPage] = useState("login");
   const [loggedIn, setLoggedIn] = useState(() => !!localStorage.getItem("access_token"));
+
   const [page, setPage] = useState("home");
   const [quizConfig, setQuizConfig] = useState(null);
+
   const [results, setResults] = useState(null);
   const [attemptResult, setAttemptResult] = useState(null);
+
   const [col, setCol] = useState(false);
 
   const tokens = getThemeTokens(theme);
+
   const isAuth = !loggedIn;
   const isQuiz = page === "quiz";
+  const isAssignment = page === "assignment_quiz";
 
   // ── USER STATE ──
   const [student, setStudent] = useState(() => {
@@ -100,7 +106,7 @@ export default function App() {
       `}</style>
 
       <div style={{ ...tokens, background: "var(--bg)", color: "var(--white)", minHeight: "100vh", display: "flex" }}>
-        
+
         {/* ── AUTH ── */}
         {isAuth ? (
           <div style={{ flex: 1 }}>
@@ -108,20 +114,22 @@ export default function App() {
           </div>
 
         ) : isQuiz ? (
-          /* ── QUIZ / ASSIGNMENT SWITCH ── */
+          /* ── QUIZ PAGE ── */
           <div style={{ flex: 1 }}>
-            {quizConfig?.type === "teacher_assignment" ? (
-              <AssignmentQuizPage
-                config={quizConfig}
-                setPage={setPage}
-              />
-            ) : (
-              <QuizPage
-                config={quizConfig}
-                setPage={setPage}
-                setResults={setResults}
-              />
-            )}
+            <QuizPage
+              config={quizConfig}
+              setPage={setPage}
+              setResults={setResults}
+            />
+          </div>
+
+        ) : isAssignment ? (
+          /* ── ASSIGNMENT PAGE ── */
+          <div style={{ flex: 1 }}>
+            <AssignmentQuizPage
+              config={quizConfig}
+              setPage={setPage}
+            />
           </div>
 
         ) : (
@@ -155,15 +163,67 @@ export default function App() {
               />
 
               <main style={{ flex: 1, overflowY: "auto" }}>
-                {page === "profile" && <ProfilePage student={student} setPage={setPage} />}
-                {page === "editprofile" && (<EditProfilePage key="edit-profile"student={student}setStudent={setStudent}setPage={setPage}/>)}
-                {page === "home" && (<HomePage setPage={setPage} setQuizConfig={setQuizConfig} />)}
-                {page === "results" && results && (<ResultsPage results={results} setPage={setPage} />)}
-                {page === "attempt-result" && attemptResult && (<ResultsPage results={attemptResult}setPage={setPage}fromDashboard/>)}
-                {page === "dashboard" && (<DashboardPage setPage={setPage} setAttemptResult={setAttemptResult} />)}
-                {page === "announcements" && (<AnnouncementsPage announcements={announcements} setAnnouncements={setAnnouncements} readIds={readIds} markAllRead={markAllRead} />)}
-                {page === "settings" && (<SettingsPage theme={theme} setTheme={setTheme} />)}
-                {page === "assignments" && (<AssignmentsPage setPage={setPage}setQuizConfig={setQuizConfig} />)}
+                {page === "home" && (
+                  <HomePage setPage={setPage} setQuizConfig={setQuizConfig} />
+                )}
+
+                {page === "profile" && (
+                  <ProfilePage student={student} setPage={setPage} />
+                )}
+
+                {page === "editprofile" && (
+                  <EditProfilePage
+                    student={student}
+                    setStudent={setStudent}
+                    setPage={setPage}
+                  />
+                )}
+
+                {page === "dashboard" && (
+                  <DashboardPage
+                    setPage={setPage}
+                    setAttemptResult={setAttemptResult}
+                  />
+                )}
+
+                {page === "results" && results && (
+                  <ResultsPage results={results} setPage={setPage} />
+                )}
+
+                {page === "attempt-result" && attemptResult && (
+                  <ResultsPage
+                    results={attemptResult}
+                    setPage={setPage}
+                    fromDashboard
+                  />
+                )}
+
+                {page === "announcements" && (
+                  <AnnouncementsPage
+                    announcements={announcements}
+                    setAnnouncements={setAnnouncements}
+                    readIds={readIds}
+                    markAllRead={markAllRead}
+                  />
+                )}
+
+                {page === "settings" && (
+                  <SettingsPage theme={theme} setTheme={setTheme} />
+                )}
+
+                {page === "assignments" && (
+                  <AssignmentsPage
+                    setPage={setPage}
+                    setQuizConfig={setQuizConfig}
+                  />
+                )}
+
+                {page === "assignment_results" && (
+                  <AssignmentsResultsPage
+                    config={quizConfig}
+                    setPage={setPage}
+                  />
+                )}
               </main>
             </div>
           </>
@@ -172,4 +232,3 @@ export default function App() {
     </>
   );
 }
-

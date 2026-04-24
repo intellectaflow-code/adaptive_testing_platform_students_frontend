@@ -4,9 +4,6 @@ import { card } from "../utils/styles";
 import API from "../api/api";
 import Loader from "../components/loader";
 
-// ─────────────────────────────────────────────
-// Utility: word count
-// ─────────────────────────────────────────────
 function wordCount(text = "") {
   return text.trim().split(/\s+/).filter(Boolean).length;
 }
@@ -19,9 +16,7 @@ function formatDate(dt) {
   });
 }
 
-// ─────────────────────────────────────────────
-// ConfirmModal
-// ─────────────────────────────────────────────
+// ConfirmModal─---------------------
 function ConfirmModal({ show, title, body, onCancel, onConfirm, cancelTxt, confirmTxt, danger }) {
   if (!show) return null;
   return (
@@ -52,9 +47,7 @@ function ConfirmModal({ show, title, body, onCancel, onConfirm, cancelTxt, confi
   );
 }
 
-// ─────────────────────────────────────────────
-// SuccessModal — shown after submission
-// ─────────────────────────────────────────────
+// SuccessModal---------------------
 function SuccessModal({ show, onClose }) {
   if (!show) return null;
   return (
@@ -90,86 +83,84 @@ function SuccessModal({ show, onClose }) {
   );
 }
 
-// ─────────────────────────────────────────────
-// DueTimer — compact countdown to due_time
-// ─────────────────────────────────────────────
-function DueTimer({ dueTime }) {
-  const [diff, setDiff] = useState(null);
-
-  useEffect(() => {
-    if (!dueTime) return;
-    const due = new Date(dueTime);
-    const tick = () => {
-      const ms = due - new Date();
-      setDiff(ms > 0 ? ms : 0);
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [dueTime]);
-
-  if (diff === null || !dueTime) return null;
-
-  const totalSec = Math.floor(diff / 1000);
-  const hh = Math.floor(totalSec / 3600);
-  const mm = Math.floor((totalSec % 3600) / 60);
-  const ss = totalSec % 60;
-
-  const color = diff === 0
-    ? "var(--red)"
-    : diff < 5 * 60 * 1000
-      ? "var(--red)"
-      : diff < 30 * 60 * 1000
-        ? "var(--amber)"
-        : "var(--green)";
-
-  if (diff === 0) {
-    return (
-      <span style={{ fontSize: 12, fontWeight: 700, color: "var(--red)" }}>
-        ⏰ Due time passed
-      </span>
-    );
-  }
-
+// AlreadySubmittedModal---------------------
+function AlreadySubmittedModal({ show, onClose }) {
+  if (!show) return null;
   return (
-    <span style={{ fontSize: 14, fontWeight: 700, color, fontVariantNumeric: "tabular-nums" }}>
-      {String(hh).padStart(2, "0")}:{String(mm).padStart(2, "0")}:{String(ss).padStart(2, "0")} left
-    </span>
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,.85)",
+      display: "flex", alignItems: "center", justifyContent: "center", zIndex: 400,
+    }}>
+      <div style={card({ padding: 36, maxWidth: 380, width: "90%", textAlign: "center" })}>
+        <div style={{
+          width: 56, height: 56, borderRadius: 16,
+          background: "rgba(240,165,0,0.12)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          margin: "0 auto 18px", color: "var(--amber)",
+        }}>
+          <Icon n="alert-circle" s={26} />
+        </div>
+        <div style={{ fontSize: 17, fontWeight: 700, color: "var(--white)", marginBottom: 8 }}>
+          Already Submitted
+        </div>
+        <p style={{ color: "var(--muted)", fontSize: 13, lineHeight: 1.7, marginBottom: 24 }}>
+          You have already submitted this assignment. Only one attempt is allowed per assignment.
+        </p>
+        <button onClick={onClose} style={{
+          width: "100%", padding: "11px",
+          background: "var(--surface2)", border: "1px solid var(--border2)",
+          borderRadius: "var(--radius)", color: "var(--body)",
+          fontSize: 13, fontWeight: 700, cursor: "pointer",
+        }}>
+          Go Back
+        </button>
+      </div>
+    </div>
   );
 }
 
-// ─────────────────────────────────────────────
-// AnswerTextarea — per-question descriptive answer
-// ─────────────────────────────────────────────
-function AnswerTextarea({ value, onChange, questionType }) {
+
+// AnswerTextarea----------------------
+function AnswerTextarea({ value, onChange, questionType , fileAns, setFileAns, cur}) {
   const rows = questionType === "descriptive" ? 12 : 6;
   const [focused, setFocused] = useState(false);
+  const blockClipboard = (e) => e.preventDefault();
 
   return (
     <div style={{ marginBottom: 20 }}>
+            <FileUploadArea
+            files={fileAns[cur]}
+            onChange={(updater) =>
+              setFileAns((prev) => ({
+                ...prev,
+                [cur]: typeof updater === "function" ? updater(prev[cur]) : updater,
+              }))
+            }
+          />
       <textarea
         value={value || ""}
         onChange={(e) => onChange(e.target.value)}
         placeholder="Write your answer here…"
         rows={rows}
+        onCopy={blockClipboard}
+        onCut={blockClipboard}
+        onPaste={blockClipboard}
+        onContextMenu={blockClipboard}
         style={{
-          width: "100%",
-          padding: "14px 16px",
+          width: "100%", padding: "14px 16px",
           background: "var(--surface2)",
           border: `1px solid ${focused ? "var(--amber)" : "var(--border)"}`,
-          borderRadius: "var(--radius)",
-          color: "var(--white)",
-          fontSize: 14,
-          lineHeight: 1.75,
-          outline: "none",
-          resize: "vertical",
-          boxSizing: "border-box",
-          fontFamily: "inherit",
-          transition: "border-color .15s",
+          borderRadius: "var(--radius)", color: "var(--white)",
+          fontSize: 14, lineHeight: 1.75, outline: "none",
+          resize: "vertical", boxSizing: "border-box",
+          fontFamily: "inherit", transition: "border-color .15s",
+          userSelect: "none",
+          WebkitUserSelect: "none",
         }}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
       />
+
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
         <span style={{ fontSize: 11, color: "var(--muted)" }}>
           {wordCount(value)} word{wordCount(value) !== 1 ? "s" : ""}
@@ -182,53 +173,292 @@ function AnswerTextarea({ value, onChange, questionType }) {
     </div>
   );
 }
+// FileUploadArea----------------------
+function FileUploadArea({ files, onChange }) {
+  const inputRef = useRef(null);
+  const [dragging, setDragging] = useState(false);
 
-// ─────────────────────────────────────────────
-// Main: AssignmentQuizPage
-// ─────────────────────────────────────────────
-export default function AssignmentQuizPage({ config, setPage }) {
+  const ACCEPTED = ["image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"];
+  const MAX_MB = 10;
 
-  const [qs, setQs]               = useState([]);
-  const [cur, setCur]              = useState(0);
-  const [textAns, setTextAns]      = useState({});   // { [idx]: "text" }
-  const [loadingQs, setLoadingQs]  = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [submissionId, setSubmissionId] = useState(config.submission_id || null);
-  const [quitModal, setQuitModal]       = useState(false);
-  const [submitModal, setSubmitModal]   = useState(false);
-  const [successModal, setSuccessModal] = useState(false);
-
-  const submittedRef = useRef(false);
-
-
-
-  useEffect(() => {
-  const startSubmission = async () => {
-    try {
-      if (submissionId) return;
-
-      const res = await API.post(`/assignments/${config.assignment_id}/start`);
-      setSubmissionId(res.data.submission_id);
-    } catch (err) {
-      console.error("Failed to start submission", err);
-    }
+  const addFiles = (incoming) => {
+    const valid = Array.from(incoming).filter((f) => {
+      if (!ACCEPTED.includes(f.type)) return false;
+      if (f.size > MAX_MB * 1024 * 1024) return false;
+      return true;
+    });
+    if (!valid.length) return;
+    onChange((prev) => {
+      const existing = prev || [];
+      const merged = [...existing];
+      valid.forEach((f) => {
+        if (!merged.find((x) => x.name === f.name && x.size === f.size)) merged.push(f);
+      });
+      return merged;
+    });
   };
 
-  startSubmission();
-}, [config.assignment_id, submissionId]);
-  // ── Auto-save draft to sessionStorage ──
+  const remove = (idx) =>
+    onChange((prev) => (prev || []).filter((_, i) => i !== idx));
+
+  const onDrop = (e) => {
+    e.preventDefault();
+    setDragging(false);
+    addFiles(e.dataTransfer.files);
+  };
+
+  const fileList = files || [];
+
+  return (
+    <div style={{ marginBottom: 20 }}>
+      {/* Label row */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+        </svg>
+        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".6px" }}>
+          Attachments <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(PDF or image, max 10 MB each)</span>
+        </span>
+      </div>
+
+      {/* Drop zone */}
+      <div
+        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={onDrop}
+        onClick={() => inputRef.current?.click()}
+        style={{
+          border: `1.5px dashed ${dragging ? "var(--amber)" : "var(--border2)"}`,
+          borderRadius: "var(--radius)",
+          background: dragging ? "rgba(240,165,0,0.05)" : "var(--surface2)",
+          padding: "16px 20px",
+          display: "flex", alignItems: "center", gap: 12,
+          cursor: "pointer", transition: "border-color .15s, background .15s",
+        }}
+      >
+        <div style={{
+          width: 34, height: 34, borderRadius: 8,
+          background: "rgba(96,165,250,0.1)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          flexShrink: 0,
+        }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+        </div>
+        <div>
+          <div style={{ fontSize: 13, color: "var(--white)", fontWeight: 500 }}>
+            {dragging ? "Drop files here" : "Click or drag files here"}
+          </div>
+          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+            PDF, JPG, PNG, GIF, WEBP
+          </div>
+        </div>
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          accept=".pdf,image/*"
+          style={{ display: "none" }}
+          onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }}
+        />
+      </div>
+
+      {/* Preview list */}
+      {fileList.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 7, marginTop: 10 }}>
+          {fileList.map((f, i) => {
+            const isPdf = f.type === "application/pdf";
+            return (
+              <div key={i} style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "8px 12px",
+                background: "var(--bg)", border: "1px solid var(--border2)",
+                borderRadius: "var(--radius)",
+              }}>
+                {/* Icon */}
+                <div style={{
+                  width: 28, height: 28, borderRadius: 6,
+                  background: isPdf ? "rgba(240,96,96,0.1)" : "rgba(74,222,128,0.1)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0,
+                }}>
+                  {isPdf ? (
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--red)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                      <polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                  ) : (
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2"/>
+                      <circle cx="8.5" cy="8.5" r="1.5"/>
+                      <polyline points="21 15 16 10 5 21"/>
+                    </svg>
+                  )}
+                </div>
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontSize: 12, color: "var(--white)", fontWeight: 500,
+                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                  }}>{f.name}</div>
+                  <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 1 }}>
+                    {(f.size / 1024).toFixed(0)} KB · {isPdf ? "PDF" : "Image"}
+                  </div>
+                </div>
+
+                <button
+                  onClick={(e) => { e.stopPropagation(); remove(i); }}
+                  style={{
+                    width: 22, height: 22, borderRadius: 5,
+                    background: "rgba(240,96,96,0.1)", border: "none",
+                    color: "var(--red)", cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    flexShrink: 0, fontSize: 14, lineHeight: 1,
+                  }}
+                  title="Remove"
+                >×</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Main: AssignmentQuizPage-----------------------
+export default function AssignmentQuizPage({ config, setPage }) {
+  const [qs, setQs]                         = useState([]);
+  const [cur, setCur]                        = useState(0);
+  const [textAns, setTextAns]                = useState({});
+  const [loadingQs, setLoadingQs]            = useState(true);
+  const [submitting, setSubmitting]          = useState(false);
+  const [submissionId, setSubmissionId]      = useState(config?.submission_id || null);
+  const [quitModal, setQuitModal]            = useState(false);
+  const [submitModal, setSubmitModal]        = useState(false);
+  const [successModal, setSuccessModal]      = useState(false);
+  const [alreadySubmitted, setAlreadySubmitted] = useState(false);
+  const [tabs, setTabs]                      = useState(0);
+  const [isFullscreen, setIsFullscreen]      = useState(false);
+  const [fileAns, setFileAns] = useState({});
+  const submittedRef = useRef(false);
+  const startedRef   = useRef(false);
+
+  // ── Fullscreen helpers ──
+  const enterFullscreen = useCallback(() => {
+    const el  = document.documentElement;
+    const req = el.requestFullscreen
+      || el.webkitRequestFullscreen
+      || el.mozRequestFullScreen
+      || el.msRequestFullscreen;
+    if (req) req.call(el).then(() => setIsFullscreen(true)).catch(() => {});
+  }, []);
+
+  const exitFullscreen = useCallback(() => {
+    const ex = document.exitFullscreen
+      || document.webkitExitFullscreen
+      || document.mozCancelFullScreen
+      || document.msExitFullscreen;
+    if (ex) ex.call(document).catch(() => {});
+  }, []);
+
+
+  useEffect(() => {
+  const blockKeys = (e) => {
+    const key = e.key.toLowerCase();
+    if (
+      (e.ctrlKey || e.metaKey) &&
+      ["c", "v", "x", "a"].includes(key)
+    ) {
+      e.preventDefault();
+    }
+  };
+  const blockContext = (e) => e.preventDefault();
+
+  document.addEventListener("keydown", blockKeys);
+  document.addEventListener("contextmenu", blockContext);
+  document.addEventListener("copy", (e) => e.preventDefault());
+  document.addEventListener("cut", (e) => e.preventDefault());
+  document.addEventListener("paste", (e) => e.preventDefault());
+
+  return () => {
+    document.removeEventListener("keydown", blockKeys);
+    document.removeEventListener("contextmenu", blockContext);
+    document.removeEventListener("copy", (e) => e.preventDefault());
+    document.removeEventListener("cut", (e) => e.preventDefault());
+    document.removeEventListener("paste", (e) => e.preventDefault());
+  };
+}, []);
+
+  // Enter fullscreen on mount; exit on unmount
+  useEffect(() => {
+    enterFullscreen();
+
+    const onFsChange = () => {
+      const active = document.fullscreenElement
+        || document.webkitFullscreenElement
+        || document.mozFullScreenElement;
+      setIsFullscreen(!!active);
+    };
+    document.addEventListener("fullscreenchange", onFsChange);
+    document.addEventListener("webkitfullscreenchange", onFsChange);
+    document.addEventListener("mozfullscreenchange", onFsChange);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", onFsChange);
+      document.removeEventListener("webkitfullscreenchange", onFsChange);
+      document.removeEventListener("mozfullscreenchange", onFsChange);
+      exitFullscreen();
+    };
+  }, [enterFullscreen, exitFullscreen]);
+
+  // ── Detect already-submitted from config ──
+  useEffect(() => {
+    if (config.status === "submitted" || config.status === "evaluated") {
+      setAlreadySubmitted(true);
+    }
+  }, [config.status]);
+
+  // ── Start submission (single attempt guard) ──
+  useEffect(() => {
+    if (submissionId) return; // already have one — continue flow
+    if (startedRef.current) return;
+    startedRef.current = true;
+
+    const start = async () => {
+      try {
+        const res = await API.post(`/assignments/${config.assignment_id}/start`);
+        if (
+          res.data.already_submitted
+          || res.data.status === "submitted"
+          || res.data.status === "evaluated"
+        ) {
+          setAlreadySubmitted(true);
+          return;
+        }
+        setSubmissionId(res.data.submission_id);
+      } catch (err) {
+        if (err.response?.status === 409 || err.response?.data?.already_submitted) {
+          setAlreadySubmitted(true);
+        } else {
+          console.error("Failed to start submission", err);
+        }
+      }
+    };
+    start();
+  }, []); // intentionally empty — we only want this to run once on mount
+
+  // ── Draft restore ──
   useEffect(() => {
     const saved = sessionStorage.getItem(`assign_draft_${config.assignment_id}`);
-    if (saved) {
-      try { setTextAns(JSON.parse(saved)); } catch (_) {}
-    }
+    if (saved) { try { setTextAns(JSON.parse(saved)); } catch (_) {} }
   }, [config.assignment_id]);
 
   useEffect(() => {
-    sessionStorage.setItem(
-      `assign_draft_${config.assignment_id}`,
-      JSON.stringify(textAns)
-    );
+    sessionStorage.setItem(`assign_draft_${config.assignment_id}`, JSON.stringify(textAns));
   }, [textAns, config.assignment_id]);
 
   // ── Load questions ──
@@ -236,22 +466,19 @@ export default function AssignmentQuizPage({ config, setPage }) {
     const load = async () => {
       try {
         setLoadingQs(true);
-
         let questionsData = [];
 
         if (config.questions && config.questions.length > 0) {
-          // questions already provided via config (from AssignmentsPage)
-          questionsData = config.questions.map((q, qi) => ({
-            question_id:   q.question_id || q.id || qi,
+          questionsData = config.questions.map((q) => ({
+            question_id:   q.question_id,
             question_text: q.question_text || q.question || "",
             question_type: q.question_type || "short",
             marks:         q.marks || null,
           }));
         } else {
-          // Fallback: fetch from API
           const res = await API.get(`/assignments/${config.assignment_id}`);
-          questionsData = (res.data.questions || []).map((q, qi) => ({
-            question_id:   q.id || qi,
+          questionsData = (res.data.questions || []).map((q) => ({
+            question_id:   q.question_id,
             question_text: q.question_text || "",
             question_type: q.question_type || "short",
             marks:         q.marks || null,
@@ -265,86 +492,120 @@ export default function AssignmentQuizPage({ config, setPage }) {
         setLoadingQs(false);
       }
     };
-
     load();
   }, [config]);
 
-  // ── Tab-switch detection ──
-  const [tabs, setTabs] = useState(0);
+  // ── Tab-switch tracker ──
   useEffect(() => {
-    const onVisibility = () => { if (document.hidden) setTabs((t) => t + 1); };
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => document.removeEventListener("visibilitychange", onVisibility);
+    const onVis = () => { if (document.hidden) setTabs((t) => t + 1); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
   }, []);
 
   // ── Submit ──
-const doSubmit = useCallback(async () => {
-  if (submittedRef.current) return;
+  const doSubmit = useCallback(async () => {
+    if (submittedRef.current) return;
+    if (!submissionId) { console.error("No submission_id — cannot submit"); return; }
 
-  if (!submissionId) {
-    console.error("No submission_id found");
-    return;
-  }
+    submittedRef.current = true;
+    setSubmitting(true);
 
-  submittedRef.current = true;
-  setSubmitting(true);
+    try {
+// Submit text answers
+await API.post(`/assignments/answers/bulk`, {
+  answers: qs.map((q, i) => ({
+    submission_id: submissionId,
+    question_id:   q.question_id,
+    answer_text:   textAns[i] || "",
+  })),
+});
 
-  try {
-    // ✅ STEP 1: SAVE ALL ANSWERS (BULK - BEST WAY)
-    await API.post(`/assignments/answers/bulk`, {
-      answers: qs.map((q, i) => ({
-        submission_id: submissionId,
-        question_id: q.question_id,
-        answer_text: textAns[i] || ""
-      }))
-    });
+// Upload file attachments per question
+      const fileEntries = Object.entries(fileAns);
+      for (const [idx, files] of fileEntries) {
+        if (!files || !files.length) continue;
+        const q = qs[parseInt(idx)];
+        if (!q) continue;
+        const form = new FormData();
+        form.append("submission_id", submissionId);
+        form.append("question_id", q.question_id);
+        files.forEach((f) => form.append("files", f));
+        await API.post(`/assignments/answers/attachments`, form);
+      }
+      await API.post(`/assignments/submissions/${submissionId}/submit`);
+      sessionStorage.removeItem(`assign_draft_${config.assignment_id}`);
+      exitFullscreen();
+      setSuccessModal(true);
+    } catch (err) {
+      console.error("Assignment submit failed:", err.response?.data || err);
+      submittedRef.current = false;
+    } finally {
+      setSubmitting(false);
+    }
+  }, [qs, textAns, fileAns, submissionId, config.assignment_id, exitFullscreen]);
 
-    // ✅ STEP 2: SUBMIT
-    await API.post(
-      `/assignments/submissions/${submissionId}/submit`
-    );
-
-    // ✅ Clear draft
-    sessionStorage.removeItem(`assign_draft_${config.assignment_id}`);
-
-  } catch (err) {
-    console.error("Assignment submit failed:", err.response?.data || err);
-  } finally {
-    setSubmitting(false);
-    setSuccessModal(true);
-  }
-}, [qs, textAns, submissionId, config.assignment_id]);
-
-  // ─── Guard states ───
+  // ── Guards ──
   if (submitting) return <Loader variant="results" />;
-  if (loadingQs || qs.length === 0 || !submissionId) {
-  return <Loader variant="test" />;
-}
 
-  const q = qs[cur];
-  const answered = Object.values(textAns).filter((v) => v && v.trim().length > 0).length;
-  const totalMarks = qs.reduce((acc, qx) => acc + (qx.marks || 0), 0) || config.total_marks;
+  if (alreadySubmitted) return (
+    <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <AlreadySubmittedModal
+        show={true}
+        onClose={() => { exitFullscreen(); setPage("home"); }}
+      />
+    </div>
+  );
 
-  // Progress pct across all questions
+  if (loadingQs || qs.length === 0 || !submissionId) return <Loader variant="test" />;
+
+  const q           = qs[cur];
+  const answered    = Object.values(textAns).filter((v) => v && v.trim().length > 0).length;
+  const totalMarks  = qs.reduce((acc, qx) => acc + (qx.marks || 0), 0) || config.total_marks;
   const progressPct = ((cur + 1) / qs.length) * 100;
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--bg)" }}>
 
-      {/* ── Modals ── */}
-      <SuccessModal show={successModal} onClose={() => { setSuccessModal(false); setPage("home"); }} />
+      {/* Fullscreen nudge */}
+      {!isFullscreen && (
+        <div style={{
+          background: "rgba(240,165,0,0.1)",
+          borderBottom: "1px solid rgba(240,165,0,0.22)",
+          padding: "7px 22px",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          fontSize: 12,
+        }}>
+          <span style={{ color: "var(--amber)", fontWeight: 600 }}>
+            ⚠ Fullscreen mode is required for this assignment
+          </span>
+          <button
+            onClick={enterFullscreen}
+            style={{
+              padding: "4px 12px", background: "var(--amber)",
+              border: "none", borderRadius: "var(--radius)",
+              color: "#0C0E14", fontSize: 11, fontWeight: 700, cursor: "pointer",
+            }}
+          >
+            Re-enter Fullscreen
+          </button>
+        </div>
+      )}
 
+      {/* Modals */}
+      <SuccessModal
+        show={successModal}
+        onClose={() => { setSuccessModal(false); setPage("home"); }}
+      />
       <ConfirmModal
         show={quitModal}
         title="Quit assignment?"
         body="Your draft has been auto-saved. You can resume later if the assignment is still open."
         onCancel={() => setQuitModal(false)}
-        onConfirm={() => { setPage("home"); }}
+        onConfirm={() => { exitFullscreen(); setPage("home"); }}
         cancelTxt="Keep Writing"
         confirmTxt="Quit"
         danger
       />
-
       <ConfirmModal
         show={submitModal}
         title="Submit assignment?"
@@ -355,15 +616,13 @@ const doSubmit = useCallback(async () => {
         confirmTxt="Submit"
       />
 
-      {/* ── Header ── */}
+      {/* Header */}
       <div style={{
         padding: "10px 22px",
-        background: "var(--surface)",
-        borderBottom: "1px solid var(--border)",
+        background: "var(--surface)", borderBottom: "1px solid var(--border)",
         display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16,
         position: "sticky", top: 0, zIndex: 100,
       }}>
-        {/* Left: title + badge */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
           <div style={{
             width: 30, height: 30, borderRadius: 8,
@@ -374,11 +633,17 @@ const doSubmit = useCallback(async () => {
             <Icon n="file-text" s={15} />
           </div>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--white)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 280 }}>
+            <div style={{
+              fontSize: 13, fontWeight: 700, color: "var(--white)",
+              whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 280,
+            }}>
               {config.title}
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 2 }}>
-              <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: "rgba(96,165,250,0.1)", color: "var(--blue)", fontWeight: 600 }}>
+              <span style={{
+                fontSize: 10, padding: "1px 6px", borderRadius: 4,
+                background: "rgba(96,165,250,0.1)", color: "var(--blue)", fontWeight: 600,
+              }}>
                 Assignment
               </span>
               {totalMarks > 0 && (
@@ -393,23 +658,21 @@ const doSubmit = useCallback(async () => {
           </div>
         </div>
 
-        {/* Right: due timer + progress + quit */}
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           {tabs > 0 && (
             <span style={{ fontSize: 11, color: "var(--red)", fontWeight: 600 }}>
               ⚠ {tabs} tab switch{tabs > 1 ? "es" : ""}
             </span>
           )}
-          <DueTimer dueTime={config.due_time} />
+
           <span style={{ fontSize: 12, color: "var(--muted)" }}>{answered}/{qs.length} answered</span>
           <button
             onClick={() => setQuitModal(true)}
             style={{
               padding: "5px 13px",
-              background: "rgba(240,96,96,0.08)",
-              border: "1px solid rgba(240,96,96,0.2)",
-              borderRadius: "var(--radius)",
-              color: "var(--red)", fontSize: 12, fontWeight: 600, cursor: "pointer",
+              background: "rgba(240,96,96,0.08)", border: "1px solid rgba(240,96,96,0.2)",
+              borderRadius: "var(--radius)", color: "var(--red)",
+              fontSize: 12, fontWeight: 600, cursor: "pointer",
             }}
           >
             Quit
@@ -417,10 +680,10 @@ const doSubmit = useCallback(async () => {
         </div>
       </div>
 
-      {/* ── Body ── */}
+      {/* Body */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
 
-        {/* ── Main question area ── */}
+        {/* Main question area */}
         <div style={{ flex: 1, padding: "28px 38px", overflowY: "auto" }}>
           <div style={{ maxWidth: 720, margin: "0 auto" }}>
 
@@ -432,8 +695,7 @@ const doSubmit = useCallback(async () => {
               <div style={{ flex: 1, height: 3, background: "var(--border2)", borderRadius: 2 }}>
                 <div style={{
                   width: `${progressPct}%`, height: "100%",
-                  background: "var(--blue)", borderRadius: 2,
-                  transition: "width .3s",
+                  background: "var(--blue)", borderRadius: 2, transition: "width .3s",
                 }} />
               </div>
               <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
@@ -443,16 +705,12 @@ const doSubmit = useCallback(async () => {
 
             {/* Question card */}
             <div style={card({ padding: 22, marginBottom: 18 })}>
-              {/* Badges */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
                 <span style={{
                   fontSize: 10, padding: "2px 8px", borderRadius: 5,
                   background: q.question_type === "descriptive"
-                    ? "rgba(96,165,250,0.1)"
-                    : "rgba(167,139,250,0.1)",
-                  color: q.question_type === "descriptive"
-                    ? "var(--blue)"
-                    : "#a78bfa",
+                    ? "rgba(96,165,250,0.1)" : "rgba(167,139,250,0.1)",
+                  color: q.question_type === "descriptive" ? "var(--blue)" : "#a78bfa",
                   fontWeight: 600,
                 }}>
                   {q.question_type === "descriptive" ? "Long Answer" : "Short Answer"}
@@ -466,17 +724,19 @@ const doSubmit = useCallback(async () => {
                   </span>
                 )}
               </div>
-
               <p style={{ fontSize: 15, color: "var(--white)", lineHeight: 1.75, margin: 0, fontWeight: 500 }}>
                 {q.question_text}
               </p>
             </div>
 
-            {/* Answer textarea */}
+            {/* Answer box */}
             <AnswerTextarea
               value={textAns[cur]}
               onChange={(val) => setTextAns((prev) => ({ ...prev, [cur]: val }))}
               questionType={q.question_type}
+              fileAns={fileAns}         
+              setFileAns={setFileAns}   
+              cur={cur}                 
             />
 
             {/* Navigation */}
@@ -496,13 +756,11 @@ const doSubmit = useCallback(async () => {
                 <Icon n="chevL" s={13} /> Prev
               </button>
 
-              {/* Auto-save indicator */}
               <span style={{
                 display: "flex", alignItems: "center", gap: 5,
                 fontSize: 11, color: "var(--muted)", padding: "0 8px",
               }}>
-                <Icon n="save" s={11} />
-                Draft auto-saved
+                <Icon n="save" s={11} /> Draft auto-saved
               </span>
 
               <div style={{ flex: 1 }} />
@@ -538,14 +796,17 @@ const doSubmit = useCallback(async () => {
           </div>
         </div>
 
-        {/* ── Side nav panel ── */}
+        {/* Side nav */}
         <div style={{
           width: 210, background: "var(--surface)",
           borderLeft: "1px solid var(--border)",
           padding: 16, display: "flex", flexDirection: "column", gap: 14,
           overflowY: "auto",
         }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".8px" }}>
+          <div style={{
+            fontSize: 11, fontWeight: 600, color: "var(--muted)",
+            textTransform: "uppercase", letterSpacing: ".8px",
+          }}>
             Questions
           </div>
 
@@ -559,18 +820,11 @@ const doSubmit = useCallback(async () => {
                   onClick={() => setCur(i)}
                   title={`Q${i + 1}${qx.marks ? ` · ${qx.marks}m` : ""}`}
                   style={{
-                    width: 32, height: 32, borderRadius: 7,
-                    border: "1px solid",
+                    width: 32, height: 32, borderRadius: 7, border: "1px solid",
                     cursor: "pointer", fontSize: 12, fontWeight: 600,
-                    borderColor: isCurrent ? "var(--blue)"
-                      : isAnswered ? "var(--green)"
-                        : "var(--border2)",
-                    background: isCurrent ? "rgba(96,165,250,0.12)"
-                      : isAnswered ? "rgba(74,222,128,0.08)"
-                        : "var(--bg)",
-                    color: isCurrent ? "var(--blue)"
-                      : isAnswered ? "var(--green)"
-                        : "var(--muted)",
+                    borderColor: isCurrent ? "var(--blue)" : isAnswered ? "var(--green)" : "var(--border2)",
+                    background: isCurrent ? "rgba(96,165,250,0.12)" : isAnswered ? "rgba(74,222,128,0.08)" : "var(--bg)",
+                    color: isCurrent ? "var(--blue)" : isAnswered ? "var(--green)" : "var(--muted)",
                     transition: "all .15s",
                   }}
                 >
@@ -582,32 +836,35 @@ const doSubmit = useCallback(async () => {
 
           {/* Legend */}
           <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ width: 10, height: 10, borderRadius: 3, background: "rgba(74,222,128,0.15)", border: "1px solid var(--green)", display: "inline-block" }} />
-              Answered
-            </span>
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ width: 10, height: 10, borderRadius: 3, background: "rgba(96,165,250,0.12)", border: "1px solid var(--blue)", display: "inline-block" }} />
-              Current
-            </span>
-            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ width: 10, height: 10, borderRadius: 3, background: "var(--bg)", border: "1px solid var(--border2)", display: "inline-block" }} />
-              Unanswered
-            </span>
+            {[
+              { bg: "rgba(74,222,128,0.15)", border: "var(--green)",  label: "Answered" },
+              { bg: "rgba(96,165,250,0.12)", border: "var(--blue)",   label: "Current" },
+              { bg: "var(--bg)",             border: "var(--border2)", label: "Unanswered" },
+            ].map(({ bg, border, label }) => (
+              <span key={label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{
+                  width: 10, height: 10, borderRadius: 3,
+                  background: bg, border: `1px solid ${border}`,
+                  display: "inline-block",
+                }} />
+                {label}
+              </span>
+            ))}
           </div>
 
-          {/* Summary */}
-          <div style={card({ padding: "12px 14px", marginTop: 4 })}>
-            <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8, fontWeight: 600 }}>
-              SUMMARY
-            </div>
+          {/* Summary card */}
+          <div style={card({ padding: "12px 14px", marginTop: 4, background: "var(--surface2)" })}>
+            <div style={{ fontSize: 11, color: "var(--blue)", marginBottom: 8, fontWeight: 600 }}>SUMMARY</div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 5 }}>
               <span style={{ color: "var(--muted)" }}>Answered</span>
               <span style={{ color: "var(--green)", fontWeight: 600 }}>{answered}</span>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 5 }}>
               <span style={{ color: "var(--muted)" }}>Remaining</span>
-              <span style={{ color: qs.length - answered > 0 ? "var(--amber)" : "var(--green)", fontWeight: 600 }}>
+              <span style={{
+                color: qs.length - answered > 0 ? "var(--amber)" : "var(--green)",
+                fontWeight: 600,
+              }}>
                 {qs.length - answered}
               </span>
             </div>
@@ -627,8 +884,7 @@ const doSubmit = useCallback(async () => {
               border: `1px solid ${answered === qs.length ? "var(--green)" : "var(--border2)"}`,
               borderRadius: "var(--radius)",
               color: answered === qs.length ? "#0C0E14" : "var(--body)",
-              cursor: "pointer", fontSize: 13, fontWeight: 700,
-              transition: "all .2s",
+              cursor: "pointer", fontSize: 13, fontWeight: 700, transition: "all .2s",
             }}
           >
             {answered === qs.length ? "✓ Submit Assignment" : "Submit Assignment"}

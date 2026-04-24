@@ -7,6 +7,10 @@ const PAGE_TITLES = {
   profile: "Profile",
   settings: "Settings",
   editprofile: "Edit Profile",
+  assignments: "Assignments",
+  results: "Quiz Results",
+  "attempt-result": "Attempt Result",
+  assignment_results: "Assignment Results"
 };
 
 export default function Topbar({ page, theme, setTheme, setPage, unreadCount = 0 }) {
