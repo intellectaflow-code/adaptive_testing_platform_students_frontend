@@ -366,30 +366,30 @@ export default function AssignmentQuizPage({ config, setPage }) {
   }, []);
 
 
-  useEffect(() => {
+useEffect(() => {
   const blockKeys = (e) => {
     const key = e.key.toLowerCase();
-    if (
-      (e.ctrlKey || e.metaKey) &&
-      ["c", "v", "x", "a"].includes(key)
-    ) {
+    if ((e.ctrlKey || e.metaKey) && ["c", "v", "x", "a"].includes(key)) {
       e.preventDefault();
     }
   };
   const blockContext = (e) => e.preventDefault();
+  const blockCopy  = (e) => e.preventDefault();
+  const blockCut   = (e) => e.preventDefault();
+  const blockPaste = (e) => e.preventDefault();
 
-  document.addEventListener("keydown", blockKeys);
+  document.addEventListener("keydown",     blockKeys);
   document.addEventListener("contextmenu", blockContext);
-  document.addEventListener("copy", (e) => e.preventDefault());
-  document.addEventListener("cut", (e) => e.preventDefault());
-  document.addEventListener("paste", (e) => e.preventDefault());
+  document.addEventListener("copy",        blockCopy);
+  document.addEventListener("cut",         blockCut);
+  document.addEventListener("paste",       blockPaste);
 
   return () => {
-    document.removeEventListener("keydown", blockKeys);
+    document.removeEventListener("keydown",     blockKeys);
     document.removeEventListener("contextmenu", blockContext);
-    document.removeEventListener("copy", (e) => e.preventDefault());
-    document.removeEventListener("cut", (e) => e.preventDefault());
-    document.removeEventListener("paste", (e) => e.preventDefault());
+    document.removeEventListener("copy",        blockCopy);
+    document.removeEventListener("cut",         blockCut);
+    document.removeEventListener("paste",       blockPaste);
   };
 }, []);
 

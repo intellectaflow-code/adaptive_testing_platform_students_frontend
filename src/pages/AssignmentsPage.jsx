@@ -273,20 +273,30 @@ function AssignmentDetailModal({ assignment, onClose, setPage, setQuizConfig }) 
           </button>
 
           {/* Primary CTA based on status */}
-          {(status === "not_started" || !status) && (
-            <button
-              onClick={handleStart}
-              style={{
-                flex: 1, padding: "9px",
-                background: "var(--amber)", border: "none",
-                borderRadius: "var(--radius)", color: "#0C0E14",
-                fontSize: 13, fontWeight: 700, cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-              }}
-            >
-              <Icon n="edit-3" s={13} /> Start Assignment
-            </button>
-          )}
+          {(status === "not_started" || !status) && (() => {
+            const isOverdue = assignment.due_time && new Date(assignment.due_time) < new Date();
+            const blocked   = isOverdue && !assignment.allow_late_submission;
+            return (
+              <button
+                onClick={!blocked ? handleStart : undefined}
+                title={blocked ? "Submission closed — deadline passed and late submissions are not allowed" : undefined}
+                style={{
+                  flex: 1, padding: "9px",
+                  background: blocked ? "var(--surface2)" : "var(--amber)",
+                  border: blocked ? "1px solid var(--border2)" : "none",
+                  borderRadius: "var(--radius)",
+                  color: blocked ? "var(--muted)" : "#0C0E14",
+                  fontSize: 13, fontWeight: 700,
+                  cursor: blocked ? "not-allowed" : "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  opacity: blocked ? 0.6 : 1,
+                }}
+              >
+                <Icon n={blocked ? "lock" : "edit-3"} s={13} />
+                {blocked ? "Submission Closed" : "Start Assignment"}
+              </button>
+            );
+          })()}
 
           {status === "in_progress" && (
             <button

@@ -364,7 +364,7 @@ export default function DashboardPage({ setPage, setAttemptResult, user }) {
               <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: "var(--border2)" }} /> Class Avg</span>
             </div>
           </div>
-          <LineChart data={formattedTrend} />
+          <LineChart data={formattedTrend} attempts={attempts} />
         </div>
         <div style={card({ padding: 20 })}>
           <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 12 }}>Attendance</div>
