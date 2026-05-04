@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 // Layout
 import Sidebar from "./components/Sidebar";
@@ -34,6 +34,10 @@ export default function App() {
 
   const [col, setCol] = useState(false);
 
+  // ── MOBILE STATE ──
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+
   const tokens = getThemeTokens(theme);
 
   const isAuth = !loggedIn;
@@ -51,6 +55,28 @@ export default function App() {
     const saved = localStorage.getItem("read_announcements");
     return saved ? JSON.parse(saved) : [];
   });
+
+  // ── TRACK WINDOW RESIZE ──
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      // Close drawer if switching to desktop
+      if (!mobile) setSidebarOpen(false);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // ── LOCK BODY SCROLL WHEN MOBILE SIDEBAR IS OPEN ──
+  useEffect(() => {
+    if (isMobile && sidebarOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [isMobile, sidebarOpen]);
 
   // ── LOGIN ──
   const handleLoginSuccess = async (basicData) => {
@@ -91,6 +117,15 @@ export default function App() {
     setPage("home");
   };
 
+  // Navigate and close mobile sidebar simultaneously
+  const handleNavigate = useCallback((p) => {
+    setPage(p);
+    setSidebarOpen(false);
+  }, []);
+
+  // Sidebar margin: on mobile always 0; on desktop respect col state
+  const sidebarWidth = isMobile ? 0 : (col ? 52 : 220);
+
   return (
     <>
       <style>{`
@@ -103,9 +138,81 @@ export default function App() {
         ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
         input:focus, select:focus { border-color: var(--amber) !important; box-shadow: 0 0 0 3px rgba(240,165,0,0.08); }
         ::selection { background: rgba(240,165,0,0.2); }
+
+        /* ── MOBILE SIDEBAR OVERLAY ── */
+        .mob-overlay {
+          display: none;
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.55);
+          z-index: 199;
+          backdrop-filter: blur(2px);
+          -webkit-backdrop-filter: blur(2px);
+          animation: fadeIn .2s ease;
+        }
+        .mob-overlay.open { display: block; }
+
+        /* ── MOBILE SIDEBAR DRAWER ── */
+        .sidebar-drawer {
+          position: fixed !important;
+          top: 0;
+          left: 0;
+          bottom: 0;
+          z-index: 200;
+          width: 220px !important;
+          transform: translateX(-100%);
+          transition: transform .25s cubic-bezier(.4,0,.2,1);
+          will-change: transform;
+        }
+        .sidebar-drawer.open {
+          transform: translateX(0);
+          box-shadow: 4px 0 24px rgba(0,0,0,0.4);
+        }
+
+        /* ── HAMBURGER BUTTON (hidden on desktop) ── */
+        .mob-menu-btn {
+          display: none;
+          align-items: center;
+          justify-content: center;
+          background: none;
+          border: none;
+          color: var(--white);
+          cursor: pointer;
+          padding: 6px;
+          border-radius: 6px;
+          margin-right: 8px;
+          transition: background .15s;
+          flex-shrink: 0;
+        }
+        .mob-menu-btn:hover { background: var(--border); }
+
+        @media (max-width: 767px) {
+          .mob-menu-btn { display: flex; }
+
+          /* Main content always full width on mobile */
+          .main-shell {
+            margin-left: 0 !important;
+          }
+
+          /* Prevent wide fixed-width children from overflowing */
+          main * { max-width: 100%; }
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
       `}</style>
 
-      <div style={{ ...tokens, background: "var(--bg)", color: "var(--white)", minHeight: "100vh", display: "flex" }}>
+      <div
+        style={{
+          ...tokens,
+          background: "var(--bg)",
+          color: "var(--white)",
+          minHeight: "100vh",
+          display: "flex",
+        }}
+      >
 
         {/* ── AUTH ── */}
         {isAuth ? (
@@ -134,23 +241,38 @@ export default function App() {
 
         ) : (
           <>
-            <Sidebar
-              page={page}
-              setPage={setPage}
-              student={student || {}}
-              onLogout={handleLogout}
-              col={col}
-              setCol={setCol}
-            />
+            {/* ── MOBILE OVERLAY (tap to close sidebar) ── */}
+            {isMobile && (
+              <div
+                className={`mob-overlay ${sidebarOpen ? "open" : ""}`}
+                onClick={() => setSidebarOpen(false)}
+                aria-hidden="true"
+              />
+            )}
 
+            {/* ── SIDEBAR ──
+                On desktop: rendered normally in flow (static/sticky).
+                On mobile:  wrapped in a fixed drawer that slides in/out. */}
+            <div className={isMobile ? `sidebar-drawer ${sidebarOpen ? "open" : ""}` : undefined}>
+              <Sidebar
+                page={page}
+                setPage={handleNavigate}
+                student={student || {}}
+                onLogout={handleLogout}
+                col={col}
+                setCol={setCol}
+              />
+            </div>
+
+            {/* ── MAIN CONTENT SHELL ── */}
             <div
+              className="main-shell"
               style={{
                 flex: 1,
                 display: "flex",
                 flexDirection: "column",
                 minHeight: "100vh",
                 overflow: "hidden",
-                marginLeft: col ? 52 : 220,
                 transition: "margin-left .25s ease",
               }}
             >
@@ -160,6 +282,9 @@ export default function App() {
                 setTheme={setTheme}
                 setPage={setPage}
                 unreadCount={unreadCount}
+                // Pass hamburger handler; Topbar should render a button when this is provided
+                onMenuClick={isMobile ? () => setSidebarOpen(o => !o) : undefined}
+                isMobile={isMobile}
               />
 
               <main style={{ flex: 1, overflowY: "auto" }}>
@@ -211,7 +336,7 @@ export default function App() {
                   <SettingsPage
                     theme={theme}
                     setTheme={setTheme}
-                    setPage={setPage}   // ← this must be here
+                    setPage={setPage}
                   />
                 )}
 

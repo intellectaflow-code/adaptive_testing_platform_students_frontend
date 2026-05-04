@@ -90,6 +90,14 @@ export default function HomePage({ setPage, setQuizConfig }) {
   const [attemptsModal, setAttemptsModal] = useState({ show: false, used: 0, max: 0 });
   const [errorModal, setErrorModal] = useState({ show: false, message: "" });
 
+  // ── RESPONSIVE ──
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   useEffect(() => {
     const fetchUser = async () => {
       try {
@@ -105,17 +113,15 @@ export default function HomePage({ setPage, setQuizConfig }) {
         const res = await API.get("/quizzes?published_only=true");
         const allQuizzes = res.data;
 
-        // ── Filter out descriptive/short-answer quizzes ──
-        // Those belong in the Assignments page, not here.
         const checked = await Promise.allSettled(
           allQuizzes.map(async (quiz) => {
             try {
               const qRes = await API.get(`/quizzes/${quiz.id}/questions`);
               const questions = qRes.data || [];
               const isDescriptive = questions.some((q) => DESCRIPTIVE_TYPES.has(q.question_type));
-              return isDescriptive ? null : quiz; // null = exclude
+              return isDescriptive ? null : quiz;
             } catch {
-              return quiz; // if check fails, keep it to be safe
+              return quiz;
             }
           })
         );
@@ -232,13 +238,20 @@ export default function HomePage({ setPage, setQuizConfig }) {
         onClose={() => setErrorModal({ show: false, message: "" })}
       />
 
-      <div style={{ padding: "24px 28px", maxWidth: 1060, margin: "0 auto" }}>
+      {/* ── responsive padding: tighter on mobile ── */}
+      <div style={{ padding: isMobile ? "16px" : "24px 28px", maxWidth: 1060, margin: "0 auto" }}>
         <div style={{ marginBottom: 22 }}>
           <h1 style={{ fontSize: 18, fontWeight: 700, color: "var(--white)", marginBottom: 3 }}>Tests</h1>
           <p style={{ color: "var(--muted)", fontSize: 13 }}>Take an AI-generated test or join a live teacher test</p>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
+        {/* ── single column on mobile, two columns on desktop ── */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+          gap: 16,
+          alignItems: "start",
+        }}>
 
           {/* AI Test Card */}
           <div style={card({ padding: 22 })}>
@@ -299,7 +312,14 @@ export default function HomePage({ setPage, setQuizConfig }) {
           </div>
 
           {/* Teacher Tests — MCQ only */}
-          <div style={card({ padding: 22, height: 420, display: "flex", flexDirection: "column" })}>
+          {/* On mobile: remove fixed height so it grows naturally instead of scrolling internally */}
+          <div style={card({
+            padding: 22,
+            ...(isMobile
+              ? { display: "flex", flexDirection: "column" }
+              : { height: 420, display: "flex", flexDirection: "column" }
+            )
+          })}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
               <div style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(96,165,250,0.1)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--blue)", flexShrink: 0 }}>
                 <Icon n="book" s={15} />
@@ -310,11 +330,21 @@ export default function HomePage({ setPage, setQuizConfig }) {
               </div>
             </div>
 
-            <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 9, paddingRight: 4 }}>
+            {/* On mobile: auto height; on desktop: scrollable flex container */}
+            <div style={{
+              ...(isMobile
+                ? {}
+                : { flex: 1, overflowY: "auto" }
+              ),
+              display: "flex",
+              flexDirection: "column",
+              gap: 9,
+              paddingRight: isMobile ? 0 : 4,
+            }}>
               {testsLoading ? (
                 <div style={{ color: "var(--muted)", fontSize: 12 }}>Loading tests...</div>
               ) : teacherTests.length === 0 ? (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, gap: 8, opacity: 0.6 }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, gap: 8, opacity: 0.6, padding: "24px 0" }}>
                   <Icon n="book" s={22} />
                   <span style={{ color: "var(--muted)", fontSize: 12, textAlign: "center" }}>
                     No MCQ tests available.<br />Descriptive assignments are in the Assignments page.
@@ -333,25 +363,25 @@ export default function HomePage({ setPage, setQuizConfig }) {
 
                   return (
                     <div key={t.id} style={{ background: "var(--bg)", border: "1px solid var(--border2)", borderRadius: "var(--radius)", padding: "13px 15px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6, gap: 8 }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                             {t.course_name}
                             {t.teacher_name && (
                               <span style={{ fontSize: 11, fontWeight: 400, color: "var(--muted)", marginLeft: 8 }}>{t.teacher_name}</span>
                             )}
                           </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
-                            <span style={{ fontSize: 11, color: "var(--muted)", display: "flex", alignItems: "center", gap: 5, marginLeft: 1 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2, flexWrap: "wrap" }}>
+                            <span style={{ fontSize: 11, color: "var(--muted)", display: "flex", alignItems: "center", gap: 5 }}>
                               <Icon n="book-open" s={15} /> {t.title}
                             </span>
-                            <span style={{ padding: "2px 7px", fontSize: 10, borderRadius: 999, fontWeight: 500, color: "var(--blue)", background: "rgba(96,165,250,0.1)" }}>
+                            <span style={{ padding: "2px 7px", fontSize: 10, borderRadius: 999, fontWeight: 500, color: "var(--blue)", background: "rgba(96,165,250,0.1)", flexShrink: 0 }}>
                               {t.course_code}
                             </span>
                           </div>
                         </div>
-                        <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, fontWeight: 500, color: status === "live" ? "var(--green)" : "var(--amber)", background: status === "live" ? "rgba(74,222,128,0.12)" : "rgba(240,165,0,0.12)", display: "flex", alignItems: "center", gap: 4 }}>
-                          <span style={{ width: 5, height: 5, borderRadius: "50%", background: status === "live" ? "var(--green)" : "var(--amber)" }} />
+                        <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, fontWeight: 500, flexShrink: 0, color: status === "live" ? "var(--green)" : "var(--amber)", background: status === "live" ? "rgba(74,222,128,0.12)" : "rgba(240,165,0,0.12)", display: "flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ width: 5, height: 5, borderRadius: "50%", background: status === "live" ? "var(--green)" : "var(--amber)", flexShrink: 0 }} />
                           {status === "live" ? "Live" : "Upcoming"}
                         </span>
                       </div>
@@ -375,6 +405,7 @@ export default function HomePage({ setPage, setQuizConfig }) {
               )}
             </div>
           </div>
+
         </div>
       </div>
     </>
