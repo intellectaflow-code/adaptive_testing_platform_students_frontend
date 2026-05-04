@@ -208,7 +208,11 @@ export default function App() {
                 )}
 
                 {page === "settings" && (
-                  <SettingsPage theme={theme} setTheme={setTheme} />
+                  <SettingsPage
+                    theme={theme}
+                    setTheme={setTheme}
+                    setPage={setPage}   // ← this must be here
+                  />
                 )}
 
                 {page === "assignments" && (

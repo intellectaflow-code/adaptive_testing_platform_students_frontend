@@ -3,7 +3,7 @@ import { useTooltip } from "../hooks/useTooltip";
 import Tooltip from "./Tooltip";
 import Select from "./Select";
 
-export default function LineChart({ data: rawData, attempts = [], h = 160 }) {
+export default function LineChart({ data: rawData, attempts = [], h = 160, onTrendColor }) {
   const { tip, show, hide } = useTooltip();
   const [selectedSubject, setSelectedSubject] = useState("all");
 
@@ -36,20 +36,28 @@ export default function LineChart({ data: rawData, attempts = [], h = 160 }) {
     }
 
     if (!source || source.length === 0) return [];
-    return [...source].reverse(); // ✅ single reverse, newest on right
+    return [...source].reverse();
   }, [rawData, attempts, selectedSubject]);
 
   // ── Trend color ───────────────────────────────────────────────────
   const trendColor = useMemo(() => {
-    if (filteredData.length < 2) return "#f59e0b";
-    const first = filteredData[0]?.score ?? 0;
-    const last  = filteredData[filteredData.length - 1]?.score ?? 0;
-    const diff  = last - first;
-    if (diff > 1)   return "#22c55e"; // rising   → green
-    if (diff < -10) return "#ef4444"; // dropped  → red
-    if (diff < -1)  return "#eab308"; // dropping → yellow
-    return "#22c55e";
-  }, [filteredData]);
+    let color = "#22c55e";
+
+    if (filteredData.length >= 2) {
+      const first = filteredData[0]?.score ?? 0;
+      const last  = filteredData[filteredData.length - 1]?.score ?? 0;
+      const diff  = last - first;
+      if (diff > 1)   color = "#22c55e"; // rising   → green
+      else if (diff < -10) color = "#ef4444"; // dropped  → red
+      else if (diff < -1)  color = "#eab308"; // dropping → yellow
+      else color = "#22c55e";
+    } else {
+      color = "#f59e0b";
+    }
+
+    onTrendColor?.(color);
+    return color;
+  }, [filteredData, onTrendColor]);
 
   if (!filteredData || filteredData.length === 0) {
     return (
@@ -96,25 +104,25 @@ export default function LineChart({ data: rawData, attempts = [], h = 160 }) {
     <>
       <Tooltip tip={tip} />
 
-  {/* ── Subject dropdown ── */}
-  {subjects.length > 1 && (
-    <div style={{ marginBottom: 10, maxWidth: 150, height: 20 }}>
-      <Select
-        value={selectedSubject}
-        onChange={setSelectedSubject}
-        options={subjects.map((s) => ({
-          value: s,
-          label: s === "all" ? "All Subjects" : s,
-        }))}
-        placeholder="Select subject..."
-        searchable={subjects.length > 6}
-                        styleOverrides={{
-                  button: { padding: "5px 26px 5px 10px", fontSize: 12, borderRadius: 10, minWidth: 150 },
-                  dropdown: { borderRadius: 12, marginTop: 6 },
-                }}
-      />
-    </div>
-  )}
+      {/* ── Subject dropdown ── */}
+      {subjects.length > 1 && (
+        <div style={{ marginBottom: 10, maxWidth: 150, height: 20 }}>
+          <Select
+            value={selectedSubject}
+            onChange={setSelectedSubject}
+            options={subjects.map((s) => ({
+              value: s,
+              label: s === "all" ? "All Subjects" : s,
+            }))}
+            placeholder="Select subject..."
+            searchable={subjects.length > 6}
+            styleOverrides={{
+              button: { padding: "5px 26px 5px 10px", fontSize: 12, borderRadius: 10, minWidth: 150 },
+              dropdown: { borderRadius: 12, marginTop: 6 },
+            }}
+          />
+        </div>
+      )}
 
       {/* ── Chart ── */}
       <div style={{ width: "100%", overflowX: "auto" }}>

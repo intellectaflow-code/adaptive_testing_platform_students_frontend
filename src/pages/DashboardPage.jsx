@@ -57,6 +57,7 @@ export default function DashboardPage({ setPage, setAttemptResult, user }) {
   const [showAllAttempts, setShowAllAttempts] = useState(false);
   const [courses, setCourses] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState(null);
+  const [trendColor, setTrendColor] = useState("#22c55e");
 
   useEffect(() => {
     const loadDashboard = async () => {
@@ -360,11 +361,11 @@ export default function DashboardPage({ setPage, setAttemptResult, user }) {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: "var(--white)" }}>Score Trend</span>
             <div style={{ display: "flex", gap: 12, fontSize: 11, color: "var(--muted)" }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: "var(--amber)" }} /> You</span>
+              <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: trendColor }} /> You</span>
               <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: "var(--border2)" }} /> Class Avg</span>
             </div>
           </div>
-          <LineChart data={formattedTrend} attempts={attempts} />
+          <LineChart data={formattedTrend} attempts={attempts} onTrendColor={setTrendColor}/>
         </div>
         <div style={card({ padding: 20 })}>
           <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 12 }}>Attendance</div>

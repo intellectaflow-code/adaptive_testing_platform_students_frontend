@@ -221,6 +221,7 @@ export default function EditProfilePage({ student, setStudent, setPage }) {
 
   const [photoFile, setPhotoFile]         = useState(null);  // ← new
   const [photoUploading, setPhotoUploading] = useState(false); // ← new
+  const [photoRemoved, setPhotoRemoved]     = useState(false); 
 
   const [branches, setBranches]           = useState([]);
   const [branchesLoading, setBranchesLoading] = useState(true);
@@ -259,23 +260,34 @@ export default function EditProfilePage({ student, setStudent, setPage }) {
 
   // ── Upload photo helper ──
 const uploadPhoto = async (file) => {
-  if (!file) return;
   setPhotoUploading(true);
   try {
-    const formData = new FormData();
-    formData.append("photo", file);
-    const res = await API.put("/profiles/me/photo", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    const updated = { ...student, profile_photo: res.data.profile_photo };
-    setStudent(updated);
-    localStorage.setItem("user_data", JSON.stringify(updated)); // ← add this
+    if (file === null) {
+      await API.delete("/profiles/me/photo");
+      const updated = { ...student, profile_photo: null, avatar: null };
+      setStudent(updated);
+      localStorage.setItem("user_data", JSON.stringify(updated));
+    } else {
+      const formData = new FormData();
+      formData.append("photo", file);
+      const res = await API.put("/profiles/me/photo", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      const updated = { ...student, profile_photo: res.data.profile_photo };
+      setStudent(updated);
+      localStorage.setItem("user_data", JSON.stringify(updated));
+    }
     setPhotoFile(null);
   } catch (err) {
-    console.error("Photo upload failed:", err);
+    console.error("Photo upload/remove failed:", err);
   } finally {
     setPhotoUploading(false);
   }
+};
+
+const handlePhotoChange = (file) => {
+  setPhotoFile(file);
+  setPhotoRemoved(file === null);
 };
 
 // In your save() function, after setStudent:
@@ -284,6 +296,7 @@ const save = async () => {
     setLoading(true);
 
     if (photoFile) await uploadPhoto(photoFile);
+    else if (photoRemoved) await uploadPhoto(null); 
 
     const res = await API.put("/profiles/me", {
       full_name: form.full_name,
@@ -358,7 +371,7 @@ const save = async () => {
         {/* ── Profile Photo ── */}
         <ProfilePhotoField
           student={student}
-          onPhotoChange={setPhotoFile}
+          onPhotoChange={handlePhotoChange}
           uploading={photoUploading}
         />
 

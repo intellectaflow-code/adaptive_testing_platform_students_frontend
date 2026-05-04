@@ -426,7 +426,7 @@ function Row({ label, desc, v, onChange, disabled }) {
   );
 }
 
-export default function SettingsPage({ theme, setTheme }) {
+export default function SettingsPage({ theme, setTheme, setPage }){
   const [settings, setSettings] = useState({
     email_notifications: true,
     quiz_alerts: true,
@@ -462,9 +462,13 @@ export default function SettingsPage({ theme, setTheme }) {
       {showPrivacy && <PrivacyModal onClose={() => setShowPrivacy(false)} />}
 
       <div style={{ padding: "24px 28px", maxWidth: 540, margin: "0 auto" }}>
-        <h1 style={{ fontSize: 18, fontWeight: 700, color: "var(--white)", marginBottom: 20 }}>
-          Settings
-        </h1>
+      <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 20 }}>
+        <button onClick={() => setPage("profile")}
+          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", display: "flex", alignItems: "center", gap: 3, fontSize: 12 }}>
+          <Icon n="chevL" s={13} /> Back
+        </button>
+        <h1 style={{ fontSize: 18, fontWeight: 700, color: "var(--white)" }}>Settings</h1>
+      </div>
 
         {/* Appearance */}
         <div style={card({ padding: 20, marginBottom: 11 })}>

@@ -128,10 +128,16 @@ export default function ProfilePage({ student, setPage }) {
               ))}
             </div>
           </div>
-          <button onClick={() => setPage("editprofile")}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: "var(--surface2)", border: "1px solid var(--border2)", borderRadius: "var(--radius)", color: "var(--body)", cursor: "pointer", fontSize: 12, fontWeight: 500 }}>
-            <Icon n="edit" s={13} /> Edit
-          </button>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <button onClick={() => setPage("editprofile")}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: "var(--surface2)", border: "1px solid var(--border2)", borderRadius: "var(--radius)", color: "var(--body)", cursor: "pointer", fontSize: 12, fontWeight: 500 }}>
+              <Icon n="edit" s={13} /> Edit
+            </button>
+            <button onClick={() => setPage("settings")}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: "var(--surface2)", border: "1px solid var(--border2)", borderRadius: "var(--radius)", color: "var(--body)", cursor: "pointer", fontSize: 12, fontWeight: 500 }}>
+              <Icon n="settings" s={13} /> Settings
+            </button>
+          </div>
         </div>
       </div>
  

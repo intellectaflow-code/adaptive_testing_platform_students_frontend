@@ -4,9 +4,7 @@ import { card } from "../utils/styles";
 import API from "../api/api";
 import Loader from "../components/loader";
 
-// ─────────────────────────────────────────────
-// Utility
-// ─────────────────────────────────────────────
+// Utility----------------------------------------
 function formatDate(dt) {
   if (!dt) return null;
   return new Date(dt).toLocaleString("en-IN", {
@@ -26,9 +24,7 @@ function formatDueDate(dt) {
   return { label: `Due ${due.toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}`, color: "var(--muted)" };
 }
 
-// ─────────────────────────────────────────────
-// Status config
-// ─────────────────────────────────────────────
+// Status config----------------------------
 const STATUS_CONFIG = {
   not_started:    { label: "Not Started",    color: "var(--muted)",  bg: "var(--surface2)",          icon: "circle" },
   in_progress:    { label: "In Progress",    color: "var(--blue)",   bg: "rgba(96,165,250,0.08)",     icon: "edit-3" },
@@ -50,10 +46,7 @@ function StatusBadge({ status }) {
     </span>
   );
 }
-
-// ─────────────────────────────────────────────
-// AssignmentDetailModal
-// ─────────────────────────────────────────────
+// AssignmentDetailModal----------------------------------------------
 function AssignmentDetailModal({ assignment, onClose, setPage, setQuizConfig }) {
   if (!assignment) return null;
 
@@ -73,8 +66,6 @@ function AssignmentDetailModal({ assignment, onClose, setPage, setQuizConfig }) 
     accuracy >= 50    ? "var(--amber)"  :
                         "var(--red)";
 
-  // BUG FIX: fetch full assignment details (with real question_id UUIDs from taq)
-  // before navigating into the quiz. Both handleStart and handleContinue must do this.
   const handleStart = async () => {
     try {
       const res  = await API.get(`/assignments/${assignment.id}`);
@@ -85,7 +76,6 @@ function AssignmentDetailModal({ assignment, onClose, setPage, setQuizConfig }) 
         due_time:      full.due_time,
         total_marks:   full.total_marks,
         questions:     full.questions || [],   // real question_id UUIDs from taq join
-        // BUG FIX: do NOT pass status here — it's a fresh start, quiz will call /start
       });
       setPage("assignment_quiz");
       onClose();
@@ -100,13 +90,11 @@ function AssignmentDetailModal({ assignment, onClose, setPage, setQuizConfig }) 
       const full = res.data;
       setQuizConfig({
         assignment_id: full.id,
-        // BUG FIX: pass submission_id so the quiz page skips the /start call entirely
         submission_id: assignment.submission_id,
         title:         full.title,
         due_time:      full.due_time,
         total_marks:   full.total_marks,
         questions:     full.questions || [],
-        // BUG FIX: pass status so the quiz page's already-submitted guard fires correctly
         status:        assignment.status,
       });
       setPage("assignment_quiz");
@@ -116,8 +104,6 @@ function AssignmentDetailModal({ assignment, onClose, setPage, setQuizConfig }) 
     }
   };
 
-  // BUG FIX: setPage only ever receives one argument in the rest of the app.
-  // Results config must go through setQuizConfig first, then navigate.
   const handleViewResults = () => {
     setQuizConfig({
       submission_id: assignment.submission_id,
@@ -224,7 +210,6 @@ function AssignmentDetailModal({ assignment, onClose, setPage, setQuizConfig }) 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               {[
                 { label: "Total Marks",   value: totalMarks || "—",                                      icon: "award" },
-                // BUG FIX: question_count comes from the backend list route; fall back gracefully
                 { label: "Questions",     value: assignment.question_count ?? "—",                        icon: "list" },
                 { label: "Start Time",    value: formatDate(assignment.start_time) || "—",                icon: "calendar" },
                 { label: "Due Time",      value: formatDate(assignment.due_time) || "—",                  icon: "clock" },
@@ -298,20 +283,30 @@ function AssignmentDetailModal({ assignment, onClose, setPage, setQuizConfig }) 
             );
           })()}
 
-          {status === "in_progress" && (
+        {status === "in_progress" && (() => {
+          const isOverdue = assignment.due_time && new Date(assignment.due_time) < new Date();
+          const blocked   = isOverdue && !assignment.allow_late_submission;
+          return (
             <button
-              onClick={handleContinue}
+              onClick={!blocked ? handleContinue : undefined}
+              title={blocked ? "Submission closed — deadline passed and late submissions are not allowed" : undefined}
               style={{
                 flex: 1, padding: "9px",
-                background: "var(--blue)", border: "none",
-                borderRadius: "var(--radius)", color: "#fff",
-                fontSize: 13, fontWeight: 700, cursor: "pointer",
+                background: blocked ? "var(--surface2)" : "var(--blue)",
+                border: blocked ? "1px solid var(--border2)" : "none",
+                borderRadius: "var(--radius)",
+                color: blocked ? "var(--muted)" : "#fff",
+                fontSize: 13, fontWeight: 700,
+                cursor: blocked ? "not-allowed" : "pointer",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                opacity: blocked ? 0.6 : 1,
               }}
             >
-              <Icon n="edit-3" s={13} /> Continue Assignment
+              <Icon n={blocked ? "lock" : "edit-3"} s={13} />
+              {blocked ? "Submission Closed" : "Continue Assignment"}
             </button>
-          )}
+          );
+        })()}
 
           {(status === "submitted" || status === "late_submitted") && (
             <div style={{
@@ -346,16 +341,14 @@ function AssignmentDetailModal({ assignment, onClose, setPage, setQuizConfig }) 
   );
 }
 
-// ─────────────────────────────────────────────
-// AssignmentCard
-// ─────────────────────────────────────────────
+// AssignmentCard--------------------------------------------------
 function AssignmentCard({ assignment, onClick }) {
   const status     = assignment.status || "not_started";
   const due        = formatDueDate(assignment.due_time);
   const cfg        = STATUS_CONFIG[status] || STATUS_CONFIG.not_started;
   const totalMarks = assignment.total_marks || 0;
 
-  // For evaluated: show mini score
+  // For evaluated: show mini score-------------------------------
   const score    = assignment.total_score ?? null;
   const accuracy = (score !== null && totalMarks > 0)
     ? Math.round((score / totalMarks) * 100)
@@ -443,7 +436,6 @@ function AssignmentCard({ assignment, onClick }) {
                 <Icon n="award" s={10} /> {totalMarks} marks
               </span>
             )}
-            {/* BUG FIX: question_count is now returned by the fixed backend list route */}
             {(assignment.question_count ?? 0) > 0 && (
               <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
                 <Icon n="list" s={10} /> {assignment.question_count}Q
@@ -498,9 +490,7 @@ function AssignmentCard({ assignment, onClick }) {
   );
 }
 
-// ─────────────────────────────────────────────
-// Main: AssignmentsPage
-// ─────────────────────────────────────────────
+// Main: AssignmentsPage--------------------------------------
 export default function AssignmentsPage({ setPage, setQuizConfig }) {
   const [assignments, setAssignments] = useState([]);
   const [loading,     setLoading]     = useState(true);
@@ -512,11 +502,6 @@ export default function AssignmentsPage({ setPage, setQuizConfig }) {
     const load = async () => {
       try {
         setLoading(true);
-        // BUG FIX: the backend /available/list route does NOT join submissions, so
-        // status / submission_id / total_score / question_count are absent.
-        // We hit the fixed backend route (see assignments.py fix notes) which now
-        // returns those fields. If your backend isn't updated yet this still works —
-        // missing fields just fall back to "not_started" / null gracefully.
         const res = await API.get("/assignments/available/list");
         setAssignments(res.data.assignments || res.data || []);
       } catch (err) {
@@ -536,7 +521,6 @@ export default function AssignmentsPage({ setPage, setQuizConfig }) {
     {
       key: "pending",
       label: "Pending",
-      // BUG FIX: include in_progress in the pending count (matches filter logic below)
       count: assignments.filter(a =>
         !a.status || a.status === "not_started" || a.status === "in_progress"
       ).length,
@@ -567,7 +551,6 @@ export default function AssignmentsPage({ setPage, setQuizConfig }) {
       !search ||
       a.title.toLowerCase().includes(search.toLowerCase()) ||
       (a.course_name  || "").toLowerCase().includes(search.toLowerCase()) ||
-      // BUG FIX: also search by subject_name / subject_code which the backend returns
       (a.subject_name || "").toLowerCase().includes(search.toLowerCase()) ||
       (a.subject_code || "").toLowerCase().includes(search.toLowerCase());
 
