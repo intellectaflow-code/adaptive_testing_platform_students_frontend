@@ -16,6 +16,19 @@ function formatDate(dt) {
 }
 
 // ─────────────────────────────────────────────
+// Responsive hook
+// ─────────────────────────────────────────────
+function useIsMobile(breakpoint = 600) {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < breakpoint);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < breakpoint);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, [breakpoint]);
+  return isMobile;
+}
+
+// ─────────────────────────────────────────────
 // ScoreRing — animated SVG arc
 // ─────────────────────────────────────────────
 function ScoreRing({ pct, color, size = 110 }) {
@@ -47,17 +60,18 @@ function ScoreRing({ pct, color, size = 110 }) {
 function StatPill({ label, value, color }) {
   return (
     <div style={{
-      flex: 1, minWidth: 100,
-      padding: "14px 16px",
+      flex: "1 1 70px",
+      minWidth: 70,
+      padding: "12px 10px",
       background: "var(--surface2)",
       border: "1px solid var(--border2)",
       borderRadius: "var(--radius)",
       textAlign: "center",
     }}>
-      <div style={{ fontSize: 22, fontWeight: 800, color: color || "var(--white)", lineHeight: 1 }}>
+      <div style={{ fontSize: 20, fontWeight: 800, color: color || "var(--white)", lineHeight: 1 }}>
         {value}
       </div>
-      <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 5, fontWeight: 500 }}>
+      <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 5, fontWeight: 500 }}>
         {label}
       </div>
     </div>
@@ -95,8 +109,8 @@ function QuestionResultCard({ ans, index }) {
       <div
         onClick={() => setExpanded((e) => !e)}
         style={{
-          padding: "14px 18px",
-          display: "flex", alignItems: "center", gap: 12,
+          padding: "12px 14px",
+          display: "flex", alignItems: "center", gap: 10,
           cursor: "pointer",
           background: expanded ? "var(--surface)" : "var(--surface2)",
           transition: "background .15s",
@@ -104,11 +118,11 @@ function QuestionResultCard({ ans, index }) {
       >
         {/* Number badge */}
         <div style={{
-          width: 28, height: 28, borderRadius: 7, flexShrink: 0,
+          width: 26, height: 26, borderRadius: 7, flexShrink: 0,
           background: `${scoreColor}18`,
           border: `1px solid ${scoreColor}40`,
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 12, fontWeight: 700, color: scoreColor,
+          fontSize: 11, fontWeight: 700, color: scoreColor,
         }}>
           {index + 1}
         </div>
@@ -142,12 +156,12 @@ function QuestionResultCard({ ans, index }) {
         {/* Score badge */}
         <div style={{
           flexShrink: 0,
-          padding: "5px 14px", borderRadius: 8,
+          padding: "4px 10px", borderRadius: 8,
           background: `${scoreColor}14`,
           border: `1px solid ${scoreColor}35`,
           textAlign: "center",
         }}>
-          <span style={{ fontSize: 18, fontWeight: 800, color: scoreColor }}>{scored}</span>
+          <span style={{ fontSize: 16, fontWeight: 800, color: scoreColor }}>{scored}</span>
           <span style={{ fontSize: 11, color: "var(--muted)" }}>/{maxQ}</span>
         </div>
 
@@ -174,7 +188,7 @@ function QuestionResultCard({ ans, index }) {
 
       {/* Expandable body */}
       {expanded && (
-        <div style={{ padding: "16px 18px 18px", background: "var(--bg)" }}>
+        <div style={{ padding: "14px 14px 16px", background: "var(--bg)" }}>
 
           {/* Full question text */}
           <div style={{ marginBottom: 14 }}>
@@ -185,7 +199,7 @@ function QuestionResultCard({ ans, index }) {
               Question
             </div>
             <p style={{
-              fontSize: 14, color: "var(--white)",
+              fontSize: 13, color: "var(--white)",
               lineHeight: 1.75, margin: 0, fontWeight: 500,
             }}>
               {ans.question_text}
@@ -275,6 +289,7 @@ export default function AssignmentsResultsPage({ config, setPage }) {
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(null);
   const [ringPct, setRingPct] = useState(0);
+  const isMobile = useIsMobile(600);
 
   useEffect(() => {
     const load = async () => {
@@ -292,17 +307,12 @@ export default function AssignmentsResultsPage({ config, setPage }) {
     load();
   }, [config.submission_id]);
 
-  // BUG FIX: derive accuracy inside the effect where results is defined,
-  // rather than referencing the outer-scope variable before it exists.
-  // Also use a proper cleanup to avoid the setState-after-unmount warning.
   useEffect(() => {
     if (!results) return;
-
-    const answers      = results.answers || [];
+    const answers       = results.answers || [];
     const marksObtained = answers.reduce((acc, a) => acc + (a.score_awarded ?? 0), 0);
     const maxMarks      = answers.reduce((acc, a) => acc + (a.marks ?? 0), 0) || config.total_marks || 0;
     const accuracy      = maxMarks > 0 ? Math.round((marksObtained / maxMarks) * 100) : 0;
-
     const t = setTimeout(() => setRingPct(accuracy), 100);
     return () => clearTimeout(t);
   }, [results, config.total_marks]);
@@ -313,6 +323,7 @@ export default function AssignmentsResultsPage({ config, setPage }) {
     <div style={{
       minHeight: "100vh", background: "var(--bg)",
       display: "flex", alignItems: "center", justifyContent: "center",
+      padding: "20px",
     }}>
       <div style={{ textAlign: "center" }}>
         <div style={{
@@ -358,6 +369,11 @@ export default function AssignmentsResultsPage({ config, setPage }) {
     accuracy >= 50 ? "Average"   :
                      "Needs Work";
 
+  // Responsive sizes
+  const ringSize     = isMobile ? 88 : 110;
+  const bodyPadding  = isMobile ? "20px 14px" : "28px 24px";
+  const cardPadding  = isMobile ? "18px 16px" : "24px 28px";
+
   return (
     <div style={{
       minHeight: "100vh",
@@ -367,57 +383,62 @@ export default function AssignmentsResultsPage({ config, setPage }) {
 
       {/* ── Sticky Header ── */}
       <div style={{
-        padding: "11px 22px",
+        padding: isMobile ? "10px 14px" : "11px 22px",
         borderBottom: "1px solid var(--border)",
         display: "flex", alignItems: "center", justifyContent: "space-between",
         position: "sticky", top: 0, zIndex: 100,
-        gap: 12,
+        gap: 10,
+        background: "var(--bg)",
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
           <div style={{
-            width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+            width: 30, height: 30, borderRadius: 8, flexShrink: 0,
             background: "rgba(74,222,128,0.1)",
             display: "flex", alignItems: "center", justifyContent: "center",
             color: "var(--green)",
           }}>
-            <Icon n="bar-chart-2" s={16} />
+            <Icon n="bar-chart-2" s={15} />
           </div>
           <div style={{ minWidth: 0 }}>
             <div style={{
-              fontSize: 13, fontWeight: 700, color: "var(--white)",
+              fontSize: isMobile ? 12 : 13,
+              fontWeight: 700, color: "var(--white)",
               whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-              maxWidth: 320,
+              maxWidth: isMobile ? 180 : 320,
             }}>
               {config.title}
             </div>
-            <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 1 }}>
-              Results · Evaluated {formatDate(submission.evaluated_at)}
-            </div>
+            {!isMobile && (
+              <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 1 }}>
+                Results · Evaluated {formatDate(submission.evaluated_at)}
+              </div>
+            )}
           </div>
         </div>
 
         <button
           onClick={() => setPage("assignments")}
           style={{
-            padding: "6px 15px",
+            padding: isMobile ? "6px 10px" : "6px 15px",
             background: "var(--surface2)", border: "1px solid var(--border2)",
             borderRadius: "var(--radius)", color: "var(--body)",
             fontSize: 12, fontWeight: 600, cursor: "pointer", flexShrink: 0,
             display: "flex", alignItems: "center", gap: 5,
           }}
         >
-          <Icon n="arrow-left" s={12} /> Back
+          <Icon n="arrow-left" s={12} />
+          {!isMobile && "Back"}
         </button>
       </div>
 
       {/* ── Body ── */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "28px 24px" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: bodyPadding }}>
         <div style={{ maxWidth: 780, margin: "0 auto" }}>
 
           {/* ── Hero Score Card ── */}
           <div style={{
             ...card({ padding: 0 }),
-            marginBottom: 20,
+            marginBottom: 16,
             overflow: "hidden",
           }}>
             {/* Top gradient strip */}
@@ -426,79 +447,146 @@ export default function AssignmentsResultsPage({ config, setPage }) {
               background: `linear-gradient(90deg, ${gradeColor}, transparent)`,
             }} />
 
-            <div style={{ padding: "24px 28px" }}>
-              <div style={{
-                display: "flex", alignItems: "center",
-                gap: 28, flexWrap: "wrap",
-              }}>
+            <div style={{ padding: cardPadding }}>
 
-                {/* Ring — uses ringPct (animates from 0 → accuracy) */}
-                <div style={{ position: "relative", flexShrink: 0 }}>
-                  <ScoreRing pct={ringPct} color={gradeColor} size={110} />
-                  <div style={{
-                    position: "absolute", inset: 0,
-                    display: "flex", flexDirection: "column",
-                    alignItems: "center", justifyContent: "center",
-                  }}>
-                    <span style={{ fontSize: 22, fontWeight: 800, color: gradeColor, lineHeight: 1 }}>
-                      {accuracy}%
-                    </span>
-                    <span style={{ fontSize: 10, color: "var(--muted)", marginTop: 2 }}>
-                      accuracy
-                    </span>
+              {/* ── MOBILE LAYOUT: stacked ── */}
+              {isMobile ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+                  {/* Top row: ring + score + grade */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                    {/* Ring */}
+                    <div style={{ position: "relative", flexShrink: 0 }}>
+                      <ScoreRing pct={ringPct} color={gradeColor} size={ringSize} />
+                      <div style={{
+                        position: "absolute", inset: 0,
+                        display: "flex", flexDirection: "column",
+                        alignItems: "center", justifyContent: "center",
+                      }}>
+                        <span style={{ fontSize: 17, fontWeight: 800, color: gradeColor, lineHeight: 1 }}>
+                          {accuracy}%
+                        </span>
+                        <span style={{ fontSize: 9, color: "var(--muted)", marginTop: 2 }}>
+                          accuracy
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Score + grade */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 2 }}>
+                        Marks Obtained
+                      </div>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+                        <span style={{ fontSize: 36, fontWeight: 800, color: gradeColor, lineHeight: 1 }}>
+                          {marksObtained}
+                        </span>
+                        <span style={{ fontSize: 14, color: "var(--muted)", fontWeight: 500 }}>
+                          / {maxMarks}
+                        </span>
+                      </div>
+                      <div style={{
+                        display: "inline-flex", alignItems: "center", gap: 5,
+                        marginTop: 8,
+                        padding: "3px 10px", borderRadius: 20,
+                        background: `${gradeColor}14`,
+                        border: `1px solid ${gradeColor}30`,
+                      }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: gradeColor }}>
+                          {gradeLabel}
+                        </span>
+                      </div>
+                    </div>
                   </div>
+
+                  {/* Stat pills grid — 2×2 on mobile */}
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <StatPill label="Questions" value={answers.length}          color="var(--white)" />
+                    <StatPill label="Attempted"  value={attempted}              color="var(--blue)"  />
+                    <StatPill label="Scored"      value={scored}                color="var(--green)" />
+                    <StatPill
+                      label="Skipped"
+                      value={answers.length - attempted}
+                      color={answers.length - attempted > 0 ? "var(--red)" : "var(--muted)"}
+                    />
+                  </div>
+
                 </div>
 
-                {/* Score + grade */}
-                <div style={{ flex: 1, minWidth: 160 }}>
-                  <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 4 }}>
-                    Marks Obtained
-                  </div>
-                  <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                    <span style={{ fontSize: 44, fontWeight: 800, color: gradeColor, lineHeight: 1 }}>
-                      {marksObtained}
-                    </span>
-                    <span style={{ fontSize: 16, color: "var(--muted)", fontWeight: 500 }}>
-                      / {maxMarks}
-                    </span>
-                  </div>
-                  <div style={{
-                    display: "inline-flex", alignItems: "center", gap: 5,
-                    marginTop: 10,
-                    padding: "4px 12px", borderRadius: 20,
-                    background: `${gradeColor}14`,
-                    border: `1px solid ${gradeColor}30`,
-                  }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: gradeColor }}>
-                      {gradeLabel}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Divider */}
+              ) : (
+                /* ── DESKTOP LAYOUT: original horizontal ── */
                 <div style={{
-                  width: 1, height: 80, background: "var(--border)",
-                  flexShrink: 0, alignSelf: "center",
-                }} />
+                  display: "flex", alignItems: "center",
+                  gap: 28, flexWrap: "wrap",
+                }}>
+                  {/* Ring */}
+                  <div style={{ position: "relative", flexShrink: 0 }}>
+                    <ScoreRing pct={ringPct} color={gradeColor} size={ringSize} />
+                    <div style={{
+                      position: "absolute", inset: 0,
+                      display: "flex", flexDirection: "column",
+                      alignItems: "center", justifyContent: "center",
+                    }}>
+                      <span style={{ fontSize: 22, fontWeight: 800, color: gradeColor, lineHeight: 1 }}>
+                        {accuracy}%
+                      </span>
+                      <span style={{ fontSize: 10, color: "var(--muted)", marginTop: 2 }}>
+                        accuracy
+                      </span>
+                    </div>
+                  </div>
 
-                {/* Mini stats */}
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                  <StatPill label="Questions" value={answers.length}          color="var(--white)" />
-                  <StatPill label="Attempted"  value={attempted}              color="var(--blue)"  />
-                  <StatPill label="Scored"      value={scored}                color="var(--green)" />
-                  <StatPill
-                    label="Skipped"
-                    value={answers.length - attempted}
-                    color={answers.length - attempted > 0 ? "var(--red)" : "var(--muted)"}
-                  />
+                  {/* Score + grade */}
+                  <div style={{ flex: 1, minWidth: 160 }}>
+                    <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 4 }}>
+                      Marks Obtained
+                    </div>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                      <span style={{ fontSize: 44, fontWeight: 800, color: gradeColor, lineHeight: 1 }}>
+                        {marksObtained}
+                      </span>
+                      <span style={{ fontSize: 16, color: "var(--muted)", fontWeight: 500 }}>
+                        / {maxMarks}
+                      </span>
+                    </div>
+                    <div style={{
+                      display: "inline-flex", alignItems: "center", gap: 5,
+                      marginTop: 10,
+                      padding: "4px 12px", borderRadius: 20,
+                      background: `${gradeColor}14`,
+                      border: `1px solid ${gradeColor}30`,
+                    }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: gradeColor }}>
+                        {gradeLabel}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Divider */}
+                  <div style={{
+                    width: 1, height: 80, background: "var(--border)",
+                    flexShrink: 0, alignSelf: "center",
+                  }} />
+
+                  {/* Mini stats */}
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    <StatPill label="Questions" value={answers.length}          color="var(--white)" />
+                    <StatPill label="Attempted"  value={attempted}              color="var(--blue)"  />
+                    <StatPill label="Scored"      value={scored}                color="var(--green)" />
+                    <StatPill
+                      label="Skipped"
+                      value={answers.length - attempted}
+                      color={answers.length - attempted > 0 ? "var(--red)" : "var(--muted)"}
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Overall feedback */}
             {submission.overall_feedback && (
               <div style={{
-                margin: "0 28px 24px",
+                margin: isMobile ? "0 14px 16px" : "0 28px 24px",
                 padding: "14px 16px",
                 background: "rgba(96,165,250,0.05)",
                 border: "1px solid rgba(96,165,250,0.15)",
@@ -522,18 +610,26 @@ export default function AssignmentsResultsPage({ config, setPage }) {
             )}
           </div>
 
+          {/* ── Evaluation date on mobile (below hero card) ── */}
+          {isMobile && submission.evaluated_at && (
+            <div style={{ fontSize: 10, color: "var(--muted)", marginBottom: 14, paddingLeft: 2 }}>
+              Evaluated {formatDate(submission.evaluated_at)}
+            </div>
+          )}
+
           {/* ── Question Breakdown heading ── */}
           <div style={{
-            display: "flex", alignItems: "center", gap: 10, marginBottom: 14,
+            display: "flex", alignItems: "center", gap: 10, marginBottom: 12,
           }}>
             <div style={{
               fontSize: 11, fontWeight: 600, color: "var(--muted)",
               textTransform: "uppercase", letterSpacing: ".8px",
+              whiteSpace: "nowrap",
             }}>
               Question Breakdown
             </div>
             <div style={{ flex: 1, height: 1, background: "var(--border2)" }} />
-            <div style={{ fontSize: 11, color: "var(--muted)" }}>
+            <div style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>
               {answers.length} question{answers.length !== 1 ? "s" : ""}
             </div>
           </div>
@@ -547,19 +643,22 @@ export default function AssignmentsResultsPage({ config, setPage }) {
 
           {/* ── Footer ── */}
           <div style={{
-            marginTop: 28, padding: "16px 0",
+            marginTop: 24, padding: "16px 0",
             borderTop: "1px solid var(--border2)",
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            flexWrap: "wrap", gap: 12,
+            display: "flex",
+            flexDirection: isMobile ? "column" : "row",
+            alignItems: isMobile ? "flex-start" : "center",
+            justifyContent: "space-between",
+            gap: 12,
           }}>
             <div style={{ fontSize: 11, color: "var(--muted)" }}>
               {submission.submitted_at && (
-                <span>Submitted {formatDate(submission.submitted_at)}</span>
+                <div>Submitted {formatDate(submission.submitted_at)}</div>
               )}
               {submission.evaluated_at && (
-                <span style={{ marginLeft: 16 }}>
-                  · Evaluated {formatDate(submission.evaluated_at)}
-                </span>
+                <div style={{ marginTop: 2 }}>
+                  Evaluated {formatDate(submission.evaluated_at)}
+                </div>
               )}
             </div>
             <button
@@ -570,6 +669,8 @@ export default function AssignmentsResultsPage({ config, setPage }) {
                 borderRadius: "var(--radius)", color: "#0C0E14",
                 fontSize: 12, fontWeight: 700, cursor: "pointer",
                 display: "flex", alignItems: "center", gap: 5,
+                alignSelf: isMobile ? "stretch" : "auto",
+                justifyContent: isMobile ? "center" : "flex-start",
               }}
             >
               <Icon n="home" s={12} /> Back to Home

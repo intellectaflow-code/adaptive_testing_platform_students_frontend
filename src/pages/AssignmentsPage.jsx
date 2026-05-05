@@ -4,7 +4,18 @@ import { card } from "../utils/styles";
 import API from "../api/api";
 import Loader from "../components/loader";
 
-// Utility----------------------------------------
+// ── Responsive hook ──────────────────────────────────────────
+function useIsMobile(bp = 480) {
+  const [mobile, setMobile] = useState(() => window.innerWidth < bp);
+  useEffect(() => {
+    const handler = () => setMobile(window.innerWidth < bp);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, [bp]);
+  return mobile;
+}
+
+// ── Utility ──────────────────────────────────────────────────
 function formatDate(dt) {
   if (!dt) return null;
   return new Date(dt).toLocaleString("en-IN", {
@@ -20,11 +31,12 @@ function formatDueDate(dt) {
   const diff = due - now;
   if (diff < 0) return { label: "Overdue", color: "var(--red)" };
   if (diff < 24 * 60 * 60 * 1000) return { label: "Due today", color: "var(--amber)" };
-  if (diff < 3 * 24 * 60 * 60 * 1000) return { label: `Due ${due.toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}`, color: "var(--amber)" };
+  if (diff < 3 * 24 * 60 * 60 * 1000)
+    return { label: `Due ${due.toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}`, color: "var(--amber)" };
   return { label: `Due ${due.toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}`, color: "var(--muted)" };
 }
 
-// Status config----------------------------
+// ── Status config ─────────────────────────────────────────────
 const STATUS_CONFIG = {
   not_started:    { label: "Not Started",    color: "var(--muted)",  bg: "var(--surface2)",          icon: "circle" },
   in_progress:    { label: "In Progress",    color: "var(--blue)",   bg: "rgba(96,165,250,0.08)",     icon: "edit-3" },
@@ -46,15 +58,16 @@ function StatusBadge({ status }) {
     </span>
   );
 }
-// AssignmentDetailModal----------------------------------------------
+
+// ── AssignmentDetailModal ─────────────────────────────────────
 function AssignmentDetailModal({ assignment, onClose, setPage, setQuizConfig }) {
+  const isMobile = useIsMobile(600);
   if (!assignment) return null;
 
   const status     = assignment.status || "not_started";
   const due        = formatDueDate(assignment.due_time);
   const totalMarks = assignment.total_marks || 0;
 
-  // Derive score display for evaluated
   const score    = assignment.total_score ?? null;
   const accuracy = (score !== null && totalMarks > 0)
     ? Math.round((score / totalMarks) * 100)
@@ -75,7 +88,7 @@ function AssignmentDetailModal({ assignment, onClose, setPage, setQuizConfig }) 
         title:         full.title,
         due_time:      full.due_time,
         total_marks:   full.total_marks,
-        questions:     full.questions || [],   // real question_id UUIDs from taq join
+        questions:     full.questions || [],
       });
       setPage("assignment_quiz");
       onClose();
@@ -114,23 +127,49 @@ function AssignmentDetailModal({ assignment, onClose, setPage, setQuizConfig }) 
     onClose();
   };
 
+  const infoItems = [
+    { label: "Total Marks",   value: totalMarks || "—",                                      icon: "award" },
+    { label: "Questions",     value: assignment.question_count ?? "—",                        icon: "list" },
+    { label: "Start Time",    value: formatDate(assignment.start_time) || "—",                icon: "calendar" },
+    { label: "Due Time",      value: formatDate(assignment.due_time) || "—",                  icon: "clock" },
+    { label: "Late Submit",   value: assignment.allow_late_submission ? "Allowed" : "Not allowed", icon: "alert-circle" },
+    { label: "Passing Marks", value: assignment.passing_marks || "—",                         icon: "check" },
+  ];
+
   return (
     <div style={{
       position: "fixed", inset: 0, background: "rgba(0,0,0,.75)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      zIndex: 200, padding: 16,
+      display: "flex",
+      alignItems: isMobile ? "flex-end" : "center",
+      justifyContent: "center",
+      zIndex: 200,
+      padding: isMobile ? 0 : 16,
     }}>
-      <div style={card({
-        padding: 0, maxWidth: 780, width: "100%",
-        maxHeight: "90vh", overflow: "hidden",
-        display: "flex", flexDirection: "column",
-      })}>
+      <div style={{
+        ...card({ padding: 0 }),
+        maxWidth: isMobile ? "100%" : 780,
+        width: "100%",
+        maxHeight: isMobile ? "92vh" : "90vh",
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        borderRadius: isMobile ? "16px 16px 0 0" : undefined,
+      }}>
+
+        {/* Drag handle on mobile */}
+        {isMobile && (
+          <div style={{ display: "flex", justifyContent: "center", padding: "10px 0 4px" }}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: "var(--border2)" }} />
+          </div>
+        )}
 
         {/* Modal header */}
         <div style={{
-          padding: "18px 22px 16px",
+          padding: isMobile ? "10px 16px 14px" : "18px 22px 16px",
           borderBottom: "1px solid var(--border)",
-          display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, background: "var(--surface2)",       }}>
+          display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12,
+          background: "var(--surface2)",
+        }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
               <StatusBadge status={status} />
@@ -140,7 +179,7 @@ function AssignmentDetailModal({ assignment, onClose, setPage, setQuizConfig }) 
                 </span>
               )}
             </div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--white)", lineHeight: 1.4 }}>
+            <div style={{ fontSize: isMobile ? 14 : 15, fontWeight: 700, color: "var(--white)", lineHeight: 1.4 }}>
               {assignment.title}
             </div>
             {assignment.course_name && (
@@ -163,28 +202,29 @@ function AssignmentDetailModal({ assignment, onClose, setPage, setQuizConfig }) 
         </div>
 
         {/* Modal body */}
-        <div style={{ padding: "18px 22px", overflowY: "auto", flex: 1 }}>
+        <div style={{ padding: isMobile ? "14px 16px" : "18px 22px", overflowY: "auto", flex: 1 }}>
 
-          {/* Score summary — only for evaluated */}
+          {/* Score summary — evaluated only */}
           {status === "evaluated" && accuracy !== null && (
             <div style={{
-              padding: "16px 18px", marginBottom: 18,
+              padding: isMobile ? "12px 14px" : "16px 18px",
+              marginBottom: 16,
               background: `${gradeColor}0d`,
               border: `1px solid ${gradeColor}30`,
               borderRadius: "var(--radius)",
-              display: "flex", alignItems: "center", gap: 16,
+              display: "flex", alignItems: "center", gap: isMobile ? 12 : 16,
             }}>
-              <div style={{ textAlign: "center", minWidth: 70 }}>
-                <div style={{ fontSize: 32, fontWeight: 800, color: gradeColor, lineHeight: 1 }}>
+              <div style={{ textAlign: "center", minWidth: 60 }}>
+                <div style={{ fontSize: isMobile ? 26 : 32, fontWeight: 800, color: gradeColor, lineHeight: 1 }}>
                   {score}
                 </div>
                 <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 3 }}>
                   / {totalMarks} marks
                 </div>
               </div>
-              <div style={{ width: 1, height: 44, background: `${gradeColor}30` }} />
+              <div style={{ width: 1, height: 40, background: `${gradeColor}30` }} />
               <div>
-                <div style={{ fontSize: 22, fontWeight: 700, color: gradeColor }}>
+                <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 700, color: gradeColor }}>
                   {accuracy}%
                 </div>
                 <div style={{ fontSize: 11, color: "var(--muted)" }}>accuracy</div>
@@ -206,31 +246,28 @@ function AssignmentDetailModal({ assignment, onClose, setPage, setQuizConfig }) 
               </div>
             )}
 
-            {/* Info grid */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              {[
-                { label: "Total Marks",   value: totalMarks || "—",                                      icon: "award" },
-                { label: "Questions",     value: assignment.question_count ?? "—",                        icon: "list" },
-                { label: "Start Time",    value: formatDate(assignment.start_time) || "—",                icon: "calendar" },
-                { label: "Due Time",      value: formatDate(assignment.due_time) || "—",                  icon: "clock" },
-                { label: "Late Submit",   value: assignment.allow_late_submission ? "Allowed" : "Not allowed", icon: "alert-circle" },
-                { label: "Passing Marks", value: assignment.passing_marks || "—",                         icon: "check" },
-              ].map(({ label, value, icon }) => (
+            {/* Info grid — 1 col on mobile, 2 col on desktop */}
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr",
+              gap: isMobile ? 6 : 8,
+            }}>
+              {infoItems.map(({ label, value, icon }) => (
                 <div key={label} style={{
-                  padding: "10px 12px",
+                  padding: isMobile ? "9px 10px" : "10px 12px",
                   background: "var(--surface2)",
                   border: "1px solid var(--border2)",
                   borderRadius: "var(--radius)",
                 }}>
                   <div style={{
-                    fontSize: 10, color: "var(--muted)", fontWeight: 600,
+                    fontSize: 9, color: "var(--muted)", fontWeight: 600,
                     textTransform: "uppercase", letterSpacing: ".5px",
-                    marginBottom: 4,
+                    marginBottom: 3,
                     display: "flex", alignItems: "center", gap: 4,
                   }}>
                     <Icon n={icon} s={9} /> {label}
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--white)", fontWeight: 600 }}>
+                  <div style={{ fontSize: 11, color: "var(--white)", fontWeight: 600 }}>
                     {value}
                   </div>
                 </div>
@@ -239,23 +276,25 @@ function AssignmentDetailModal({ assignment, onClose, setPage, setQuizConfig }) 
           </div>
         </div>
 
-        {/* Modal footer — action button */}
+        {/* Modal footer */}
         <div style={{
-          padding: "14px 22px",
+          padding: isMobile ? "12px 16px calc(12px + env(safe-area-inset-bottom))" : "14px 22px",
           borderTop: "1px solid var(--border)",
-          display: "flex", gap: 10,
+          display: "flex", gap: 8,
         }}>
-          <button
-            onClick={onClose}
-            style={{
-              padding: "9px 16px",
-              background: "var(--surface2)", border: "1px solid var(--border2)",
-              borderRadius: "var(--radius)", color: "var(--body)",
-              fontSize: 13, fontWeight: 600, cursor: "pointer",
-            }}
-          >
-            Close
-          </button>
+          {!isMobile && (
+            <button
+              onClick={onClose}
+              style={{
+                padding: "9px 16px",
+                background: "var(--surface2)", border: "1px solid var(--border2)",
+                borderRadius: "var(--radius)", color: "var(--body)",
+                fontSize: 13, fontWeight: 600, cursor: "pointer",
+              }}
+            >
+              Close
+            </button>
+          )}
 
           {/* Primary CTA based on status */}
           {(status === "not_started" || !status) && (() => {
@@ -283,30 +322,30 @@ function AssignmentDetailModal({ assignment, onClose, setPage, setQuizConfig }) 
             );
           })()}
 
-        {status === "in_progress" && (() => {
-          const isOverdue = assignment.due_time && new Date(assignment.due_time) < new Date();
-          const blocked   = isOverdue && !assignment.allow_late_submission;
-          return (
-            <button
-              onClick={!blocked ? handleContinue : undefined}
-              title={blocked ? "Submission closed — deadline passed and late submissions are not allowed" : undefined}
-              style={{
-                flex: 1, padding: "9px",
-                background: blocked ? "var(--surface2)" : "var(--blue)",
-                border: blocked ? "1px solid var(--border2)" : "none",
-                borderRadius: "var(--radius)",
-                color: blocked ? "var(--muted)" : "#fff",
-                fontSize: 13, fontWeight: 700,
-                cursor: blocked ? "not-allowed" : "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                opacity: blocked ? 0.6 : 1,
-              }}
-            >
-              <Icon n={blocked ? "lock" : "edit-3"} s={13} />
-              {blocked ? "Submission Closed" : "Continue Assignment"}
-            </button>
-          );
-        })()}
+          {status === "in_progress" && (() => {
+            const isOverdue = assignment.due_time && new Date(assignment.due_time) < new Date();
+            const blocked   = isOverdue && !assignment.allow_late_submission;
+            return (
+              <button
+                onClick={!blocked ? handleContinue : undefined}
+                title={blocked ? "Submission closed — deadline passed and late submissions are not allowed" : undefined}
+                style={{
+                  flex: 1, padding: "9px",
+                  background: blocked ? "var(--surface2)" : "var(--blue)",
+                  border: blocked ? "1px solid var(--border2)" : "none",
+                  borderRadius: "var(--radius)",
+                  color: blocked ? "var(--muted)" : "#fff",
+                  fontSize: 13, fontWeight: 700,
+                  cursor: blocked ? "not-allowed" : "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  opacity: blocked ? 0.6 : 1,
+                }}
+              >
+                <Icon n={blocked ? "lock" : "edit-3"} s={13} />
+                {blocked ? "Submission Closed" : "Continue Assignment"}
+              </button>
+            );
+          })()}
 
           {(status === "submitted" || status === "late_submitted") && (
             <div style={{
@@ -341,14 +380,13 @@ function AssignmentDetailModal({ assignment, onClose, setPage, setQuizConfig }) 
   );
 }
 
-// AssignmentCard--------------------------------------------------
+// ── AssignmentCard ────────────────────────────────────────────
 function AssignmentCard({ assignment, onClick }) {
   const status     = assignment.status || "not_started";
   const due        = formatDueDate(assignment.due_time);
   const cfg        = STATUS_CONFIG[status] || STATUS_CONFIG.not_started;
   const totalMarks = assignment.total_marks || 0;
 
-  // For evaluated: show mini score-------------------------------
   const score    = assignment.total_score ?? null;
   const accuracy = (score !== null && totalMarks > 0)
     ? Math.round((score / totalMarks) * 100)
@@ -371,6 +409,8 @@ function AssignmentCard({ assignment, onClick }) {
         border: status === "evaluated"
           ? `1px solid ${gradeColor}30`
           : "1px solid var(--border2)",
+        // Prevent tap highlight on mobile
+        WebkitTapHighlightColor: "transparent",
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.transform = "translateY(-1px)";
@@ -392,16 +432,16 @@ function AssignmentCard({ assignment, onClick }) {
                                       "var(--border2)",
       }} />
 
-      <div style={{ padding: "14px 16px" }}>
+      <div style={{ padding: "12px 14px" }}>
         {/* Header row */}
         <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
           <div style={{
-            width: 34, height: 34, borderRadius: 9, flexShrink: 0,
+            width: 32, height: 32, borderRadius: 8, flexShrink: 0,
             background: `${cfg.color}14`,
             display: "flex", alignItems: "center", justifyContent: "center",
             color: "var(--blue)",
           }}>
-            <Icon n="file-text" s={20} />
+            <Icon n="file-text" s={18} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{
@@ -425,11 +465,10 @@ function AssignmentCard({ assignment, onClick }) {
 
         {/* Meta rows */}
         <div style={{
-          display: "flex", flexDirection: "column", gap: 8,
-          paddingTop: 10, borderTop: "1px solid var(--border2)",
+          display: "flex", flexDirection: "column", gap: 7,
+          paddingTop: 9, borderTop: "1px solid var(--border2)",
         }}>
-
-          {/* Row 1: marks + questions + evaluated score chip */}
+          {/* Row 1: marks + questions + score chip */}
           <div style={{ display: "flex", gap: 12, fontSize: 11, color: "var(--muted)", alignItems: "center" }}>
             {totalMarks > 0 && (
               <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
@@ -490,8 +529,10 @@ function AssignmentCard({ assignment, onClick }) {
   );
 }
 
-// Main: AssignmentsPage--------------------------------------
+// ── Main: AssignmentsPage ─────────────────────────────────────
 export default function AssignmentsPage({ setPage, setQuizConfig }) {
+  const isMobile = useIsMobile(600);
+
   const [assignments, setAssignments] = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [selected,    setSelected]    = useState(null);
@@ -515,7 +556,6 @@ export default function AssignmentsPage({ setPage, setQuizConfig }) {
 
   if (loading) return <Loader variant="test" />;
 
-  // Filter tabs
   const TABS = [
     { key: "all",       label: "All",       count: assignments.length },
     {
@@ -558,7 +598,11 @@ export default function AssignmentsPage({ setPage, setQuizConfig }) {
   });
 
   return (
-    <div style={{ padding: "24px 20px", maxWidth: 900, margin: "0 auto" }}>
+    <div style={{
+      padding: isMobile ? "16px 12px" : "24px 20px",
+      maxWidth: 900,
+      margin: "0 auto",
+    }}>
 
       {/* Modal */}
       {selected && (
@@ -571,8 +615,8 @@ export default function AssignmentsPage({ setPage, setQuizConfig }) {
       )}
 
       {/* Page header */}
-      <div style={{ marginBottom: 22 }}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: "var(--white)", marginBottom: 4 }}>
+      <div style={{ marginBottom: isMobile ? 14 : 22 }}>
+        <div style={{ fontSize: isMobile ? 16 : 18, fontWeight: 800, color: "var(--white)", marginBottom: 4 }}>
           Assignments
         </div>
         <div style={{ fontSize: 12, color: "var(--muted)" }}>
@@ -581,10 +625,15 @@ export default function AssignmentsPage({ setPage, setQuizConfig }) {
       </div>
 
       {/* Search + filter row */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
+      <div style={{
+        display: "flex",
+        flexDirection: isMobile ? "column" : "row",
+        gap: 8,
+        marginBottom: 16,
+      }}>
         {/* Search */}
         <div style={{
-          flex: 1, minWidth: 180,
+          flex: 1,
           display: "flex", alignItems: "center", gap: 8,
           padding: "0 12px",
           background: "var(--surface2)", border: "1px solid var(--border2)",
@@ -603,26 +652,32 @@ export default function AssignmentsPage({ setPage, setQuizConfig }) {
           />
         </div>
 
-        {/* Filter tabs */}
+        {/* Filter tabs — scrollable on mobile */}
         <div style={{
           display: "flex", gap: 4,
           background: "var(--surface2)",
           border: "1px solid var(--border2)",
           borderRadius: "var(--radius)",
           padding: 3,
+          overflowX: "auto",
+          WebkitOverflowScrolling: "touch",
+          scrollbarWidth: "none",        // Firefox
+          msOverflowStyle: "none",       // IE
+          flexShrink: 0,
         }}>
           {TABS.map(({ key, label, count }) => (
             <button
               key={key}
               onClick={() => setFilter(key)}
               style={{
-                padding: "5px 12px",
+                padding: isMobile ? "5px 10px" : "5px 12px",
                 borderRadius: 6, border: "none",
-                cursor: "pointer", fontSize: 12, fontWeight: 600,
+                cursor: "pointer", fontSize: isMobile ? 11 : 12, fontWeight: 600,
                 background: filter === key ? "var(--surface)" : "transparent",
                 color: filter === key ? "var(--white)" : "var(--muted)",
                 transition: "all .15s",
-                display: "flex", alignItems: "center", gap: 5,
+                display: "flex", alignItems: "center", gap: 4,
+                whiteSpace: "nowrap", flexShrink: 0,
               }}
             >
               {label}
@@ -660,8 +715,11 @@ export default function AssignmentsPage({ setPage, setQuizConfig }) {
       ) : (
         <div style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-          gap: 12,
+          // Single column below 480px, 2 cols from 480–767px, auto-fill above
+          gridTemplateColumns: isMobile
+            ? "1fr"
+            : "repeat(auto-fill, minmax(280px, 1fr))",
+          gap: isMobile ? 8 : 12,
         }}>
           {filtered.map((a) => (
             <AssignmentCard

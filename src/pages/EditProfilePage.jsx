@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import Icon from "../components/Icon";
-import { card } from "../utils/styles";
+import { card, initials } from "../utils/styles";
 import API from "../api/api";
 import Select from "../components/Select";
 
@@ -40,7 +40,7 @@ const Field = ({ label, k, form, setForm, disabled = false, type = "text", input
 );
 
 // ── Profile Photo Component ──
-const ProfilePhotoField = ({ student, onPhotoChange, uploading }) => {
+const ProfilePhotoField = ({ student, onPhotoChange, uploading, isMobile }) => {
   const fileInputRef = useRef(null);
   const [preview, setPreview] = useState(null);
   const [expanded, setExpanded] = useState(false);
@@ -52,19 +52,11 @@ const ProfilePhotoField = ({ student, onPhotoChange, uploading }) => {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      alert("Please select an image file.");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      alert("Image must be smaller than 5MB.");
-      return;
-    }
-    const objectUrl = URL.createObjectURL(file);
-    setPreview(objectUrl);
+    if (!file.type.startsWith("image/")) { alert("Please select an image file."); return; }
+    if (file.size > 5 * 1024 * 1024) { alert("Image must be smaller than 5MB."); return; }
+    setPreview(URL.createObjectURL(file));
     onPhotoChange(file);
   };
-
 
   const handleRemove = () => {
     setPreview(null);
@@ -72,31 +64,38 @@ const ProfilePhotoField = ({ student, onPhotoChange, uploading }) => {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const initials = student?.full_name
-    ? student.full_name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2)
-    : "?";
-
+const avatarInitials = student?.full_name ? initials(student.full_name) : "?";
 
   return (
     <>
-      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 18, paddingBottom: 18, borderBottom: "1px solid var(--border2)" }}>
+      <div style={{
+        display: "flex",
+        alignItems: isMobile ? "flex-start" : "center",
+        gap: isMobile ? 12 : 16,
+        marginBottom: 18,
+        paddingBottom: 18,
+        borderBottom: "1px solid var(--border2)",
+        flexWrap: "nowrap",
+      }}>
         {/* Avatar circle */}
         <div style={{ position: "relative", flexShrink: 0 }}>
           <div
             style={{
-              width: 72, height: 72, borderRadius: "50%",
+              width: isMobile ? 60 : 72,
+              height: isMobile ? 60 : 72,
+              borderRadius: "50%",
               background: preview ? "transparent" : "var(--surface2)",
               border: "2px solid var(--border2)",
               overflow: "hidden",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 22, fontWeight: 700, color: "var(--amber)",
+              fontSize: isMobile ? 18 : 22, fontWeight: 700, color: "var(--amber)",
               cursor: preview ? "pointer" : "default",
             }}
             onClick={() => preview && setExpanded(true)}
           >
             {preview
               ? <img src={preview} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              : initials
+              : avatarInitials
             }
           </div>
 
@@ -119,10 +118,10 @@ const ProfilePhotoField = ({ student, onPhotoChange, uploading }) => {
         </div>
 
         {/* Text + actions */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 5, minWidth: 0 }}>
           <span style={{ fontSize: 13, fontWeight: 600, color: "var(--white)" }}>Profile Photo</span>
           <span style={{ fontSize: 11, color: "var(--muted)" }}>JPG, PNG or WebP · Max 5 MB</span>
-          <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
+          <div style={{ display: "flex", gap: 7, marginTop: 3, flexWrap: "wrap" }}>
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
@@ -133,13 +132,13 @@ const ProfilePhotoField = ({ student, onPhotoChange, uploading }) => {
                 cursor: uploading ? "not-allowed" : "pointer",
                 display: "flex", alignItems: "center", gap: 5,
                 opacity: uploading ? 0.6 : 1,
+                whiteSpace: "nowrap",
               }}
             >
-              {uploading ? <Icon n="loader" s={14} style={{
-                  animation: "spin 1s linear infinite",
-                  display: "inline-block",
-                  transformOrigin: "center",
-                }} /> : <Icon n="upload" s={11} />}
+              {uploading
+                ? <Icon n="loader" s={14} style={{ animation: "spin 1s linear infinite", display: "inline-block", transformOrigin: "center" }} />
+                : <Icon n="upload" s={11} />
+              }
               {uploading ? "Uploading..." : preview ? "Change" : "Upload"}
             </button>
 
@@ -151,6 +150,7 @@ const ProfilePhotoField = ({ student, onPhotoChange, uploading }) => {
                   background: "transparent", border: "1px solid var(--border2)",
                   borderRadius: "var(--radius)", color: "var(--red)",
                   cursor: "pointer",
+                  whiteSpace: "nowrap",
                 }}
               >
                 Remove
@@ -159,7 +159,6 @@ const ProfilePhotoField = ({ student, onPhotoChange, uploading }) => {
           </div>
         </div>
 
-        {/* Hidden file input */}
         <input
           ref={fileInputRef}
           type="file"
@@ -169,7 +168,7 @@ const ProfilePhotoField = ({ student, onPhotoChange, uploading }) => {
         />
       </div>
 
-      {/* ── Lightbox — inside the fragment, inside the component ── */}
+      {/* Lightbox */}
       {expanded && (
         <div
           onClick={() => setExpanded(false)}
@@ -210,6 +209,7 @@ const ProfilePhotoField = ({ student, onPhotoChange, uploading }) => {
     </>
   );
 };
+
 export default function EditProfilePage({ student, setStudent, setPage }) {
   const [saved, setSaved]           = useState(false);
   const [pw, setPw]                 = useState({ cur: "", np: "", cp: "" });
@@ -219,12 +219,20 @@ export default function EditProfilePage({ student, setStudent, setPage }) {
   const [pwSuccess, setPwSuccess]   = useState(false);
   const [showPwFields, setShowPwFields] = useState({ cur: false, np: false, cp: false });
 
-  const [photoFile, setPhotoFile]         = useState(null);  // ← new
-  const [photoUploading, setPhotoUploading] = useState(false); // ← new
-  const [photoRemoved, setPhotoRemoved]     = useState(false); 
+  const [photoFile, setPhotoFile]           = useState(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoRemoved, setPhotoRemoved]     = useState(false);
 
-  const [branches, setBranches]           = useState([]);
+  const [branches, setBranches]               = useState([]);
   const [branchesLoading, setBranchesLoading] = useState(true);
+
+  // ── Mobile detection ──
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 480);
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 480);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const [form, setForm] = useState({
     full_name: "", email: "", usn: "",
@@ -258,65 +266,62 @@ export default function EditProfilePage({ student, setStudent, setPage }) {
     });
   }, [student]);
 
-  // ── Upload photo helper ──
-const uploadPhoto = async (file) => {
-  setPhotoUploading(true);
-  try {
-    if (file === null) {
-      await API.delete("/profiles/me/photo");
-      const updated = { ...student, profile_photo: null, avatar: null };
-      setStudent(updated);
-      localStorage.setItem("user_data", JSON.stringify(updated));
-    } else {
-      const formData = new FormData();
-      formData.append("photo", file);
-      const res = await API.put("/profiles/me/photo", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      const updated = { ...student, profile_photo: res.data.profile_photo };
-      setStudent(updated);
-      localStorage.setItem("user_data", JSON.stringify(updated));
+  const uploadPhoto = async (file) => {
+    setPhotoUploading(true);
+    try {
+      if (file === null) {
+        await API.delete("/profiles/me/photo");
+        const updated = { ...student, profile_photo: null, avatar: null };
+        setStudent(updated);
+        localStorage.setItem("user_data", JSON.stringify(updated));
+      } else {
+        const formData = new FormData();
+        formData.append("photo", file);
+        const res = await API.put("/profiles/me/photo", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        const updated = { ...student, profile_photo: res.data.profile_photo };
+        setStudent(updated);
+        localStorage.setItem("user_data", JSON.stringify(updated));
+      }
+      setPhotoFile(null);
+    } catch (err) {
+      console.error("Photo upload/remove failed:", err);
+    } finally {
+      setPhotoUploading(false);
     }
-    setPhotoFile(null);
-  } catch (err) {
-    console.error("Photo upload/remove failed:", err);
-  } finally {
-    setPhotoUploading(false);
-  }
-};
+  };
 
-const handlePhotoChange = (file) => {
-  setPhotoFile(file);
-  setPhotoRemoved(file === null);
-};
+  const handlePhotoChange = (file) => {
+    setPhotoFile(file);
+    setPhotoRemoved(file === null);
+  };
 
-// In your save() function, after setStudent:
-const save = async () => {
-  try {
-    setLoading(true);
+  const save = async () => {
+    try {
+      setLoading(true);
+      if (photoFile) await uploadPhoto(photoFile);
+      else if (photoRemoved) await uploadPhoto(null);
 
-    if (photoFile) await uploadPhoto(photoFile);
-    else if (photoRemoved) await uploadPhoto(null); 
+      const res = await API.put("/profiles/me", {
+        full_name: form.full_name,
+        branch:    form.branch,
+        section:   form.section,
+        sem:       Number(form.semester)
+      });
 
-    const res = await API.put("/profiles/me", {
-      full_name: form.full_name,
-      branch:    form.branch,
-      section:   form.section,
-      sem:       Number(form.semester)
-    });
+      const updated = { ...student, ...res.data };
+      setStudent(updated);
+      localStorage.setItem("user_data", JSON.stringify(updated));
 
-    const updated = { ...student, ...res.data };
-    setStudent(updated);
-    localStorage.setItem("user_data", JSON.stringify(updated)); // ← add this
-
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
-  } catch (err) {
-    console.error(err);
-  } finally {
-    setLoading(false);
-  }
-};
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const changePw = async () => {
     if (!pw.cur)          { setPwErr("Enter your current password"); return; }
@@ -349,33 +354,44 @@ const save = async () => {
     cursor: disabled ? "not-allowed" : "text",
   });
 
+  const isBusy = loading || branchesLoading || photoUploading;
+
   return (
-    <div style={{ padding: "24px 28px", maxWidth: 620, margin: "0 auto" }}>
+    <div style={{ padding: isMobile ? "16px 14px" : "24px 28px", maxWidth: 620, margin: "0 auto" }}>
+
+      {/* ── Header ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 20 }}>
         <button onClick={() => setPage("profile")}
-          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", display: "flex", alignItems: "center", gap: 3, fontSize: 12 }}>
+          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", display: "flex", alignItems: "center", gap: 3, fontSize: 12, flexShrink: 0 }}>
           <Icon n="chevL" s={13} /> Back
         </button>
-        <h1 style={{ fontSize: 18, fontWeight: 700, color: "var(--white)" }}>Edit Profile</h1>
+        <h1 style={{ fontSize: isMobile ? 16 : 18, fontWeight: 700, color: "var(--white)" }}>Edit Profile</h1>
       </div>
 
+      {/* ── Save banner ── */}
       {saved && (
         <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 13px", background: "rgba(74,222,128,0.07)", border: "1px solid rgba(74,222,128,0.18)", borderRadius: "var(--radius)", marginBottom: 12, color: "var(--green)", fontSize: 13 }}>
           <Icon n="check" s={13} /> Saved
         </div>
       )}
 
-      <div style={card({ padding: 20, marginBottom: 11 })}>
+      {/* ── Personal info card ── */}
+      <div style={card({ padding: isMobile ? 16 : 20, marginBottom: 11 })}>
         <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 13 }}>Personal Information</div>
 
-        {/* ── Profile Photo ── */}
         <ProfilePhotoField
           student={student}
           onPhotoChange={handlePhotoChange}
           uploading={photoUploading}
+          isMobile={isMobile}
         />
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        {/* Form grid — 2 cols on desktop, 1 col on mobile */}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+          gap: isMobile ? 10 : 12,
+        }}>
           <Field label="Full Name" k="full_name" form={form} setForm={setForm} inputStyle={inputStyle} />
           <Field label="Email"     k="email"     form={form} setForm={setForm} inputStyle={inputStyle} disabled />
           <Field label="USN"       k="usn"       form={form} setForm={setForm} inputStyle={inputStyle} disabled />
@@ -409,38 +425,87 @@ const save = async () => {
           </div>
         </div>
 
-        <button onClick={save} disabled={loading || branchesLoading || photoUploading}
-          style={{ marginTop: 14, padding: "8px 20px", background: "var(--amber)", border: "none", borderRadius: "var(--radius)", color: "#0C0E14", fontWeight: 700, cursor: (loading || branchesLoading || photoUploading) ? "not-allowed" : "pointer", fontSize: 13, opacity: (loading || branchesLoading || photoUploading) ? 0.7 : 1, display: "flex", alignItems: "center", gap: 6 }}>
+        <button
+          onClick={save}
+          disabled={isBusy}
+          style={{
+            marginTop: 14,
+            padding: "8px 20px",
+            background: "var(--amber)",
+            border: "none",
+            borderRadius: "var(--radius)",
+            color: "#0C0E14",
+            fontWeight: 700,
+            cursor: isBusy ? "not-allowed" : "pointer",
+            fontSize: 13,
+            opacity: isBusy ? 0.7 : 1,
+            display: "flex", alignItems: "center", gap: 6,
+            // Full-width on mobile
+            width: isMobile ? "100%" : "auto",
+            justifyContent: isMobile ? "center" : "flex-start",
+          }}
+        >
           {loading && <Icon n="loader" s={14} />}
           {loading ? "Saving..." : "Save Changes"}
         </button>
       </div>
 
-      <div style={card({ padding: 20 })}>
+      {/* ── Change password card ── */}
+      <div style={card({ padding: isMobile ? 16 : 20 })}>
         <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 13 }}>Change Password</div>
+
         {pwSuccess && (
           <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 13px", background: "rgba(74,222,128,0.07)", border: "1px solid rgba(74,222,128,0.18)", borderRadius: "var(--radius)", marginBottom: 12, color: "var(--green)", fontSize: 13 }}>
             <Icon n="check" s={13} /> Password updated
           </div>
         )}
-        <div style={{ display: "flex", flexDirection: "column", gap: 11, maxWidth: 320 }}>
+
+        {/* Password fields — no fixed maxWidth on mobile */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 11, maxWidth: isMobile ? "100%" : 320 }}>
           {[["Current Password", "cur"], ["New Password", "np"], ["Confirm Password", "cp"]].map(([l, k]) => (
             <div key={k}>
               <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 5 }}>{l}</label>
               <div style={{ position: "relative" }}>
-                <input type={showPwFields[k] ? "text" : "password"} value={pw[k]}
+                <input
+                  type={showPwFields[k] ? "text" : "password"}
+                  value={pw[k]}
                   onChange={(e) => setPw({ ...pw, [k]: e.target.value })}
-                  style={{ ...inputStyle(), paddingRight: 38 }} />
-                <span onClick={() => setShowPwFields(prev => ({ ...prev, [k]: !prev[k] }))}
-                  style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, color: "var(--muted)" }}>
+                  style={{ ...inputStyle(), paddingRight: 38 }}
+                />
+                <span
+                  onClick={() => setShowPwFields(prev => ({ ...prev, [k]: !prev[k] }))}
+                  style={{
+                    position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
+                    cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                    width: 22, height: 22, color: "var(--muted)",
+                  }}
+                >
                   <Icon n={showPwFields[k] ? "eyeOff" : "eye"} s={16} />
                 </span>
               </div>
             </div>
           ))}
+
           {pwErr && <span style={{ fontSize: 12, color: "var(--red)" }}>{pwErr}</span>}
-          <button onClick={changePw} disabled={pwLoading}
-            style={{ padding: "8px 18px", background: "var(--surface2)", border: "1px solid var(--border2)", borderRadius: "var(--radius)", color: "var(--body)", cursor: pwLoading ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 600, alignSelf: "flex-start", opacity: pwLoading ? 0.7 : 1, display: "flex", alignItems: "center", gap: 6 }}>
+
+          <button
+            onClick={changePw}
+            disabled={pwLoading}
+            style={{
+              padding: "8px 18px",
+              background: "var(--surface2)",
+              border: "1px solid var(--border2)",
+              borderRadius: "var(--radius)",
+              color: "var(--body)",
+              cursor: pwLoading ? "not-allowed" : "pointer",
+              fontSize: 13, fontWeight: 600,
+              alignSelf: isMobile ? "stretch" : "flex-start",
+              opacity: pwLoading ? 0.7 : 1,
+              display: "flex", alignItems: "center",
+              justifyContent: isMobile ? "center" : "flex-start",
+              gap: 6,
+            }}
+          >
             {pwLoading && <Icon n="loader" s={14} />}
             {pwLoading ? "Updating..." : "Update Password"}
           </button>

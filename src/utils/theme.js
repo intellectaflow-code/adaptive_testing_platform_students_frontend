@@ -1,5 +1,5 @@
 export const getThemeTokens = (theme) =>
-  theme === "light"
+  theme === "dark"
     ? {
         "--bg": "#0C0E14",
         "--surface": "#1d202e",

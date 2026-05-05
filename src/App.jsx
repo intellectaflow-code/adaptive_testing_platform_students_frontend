@@ -22,7 +22,7 @@ import API from "./api/api";
 import { getThemeTokens } from "./utils/theme";
 
 export default function App() {
-  const [theme, setTheme] = useState("dark");
+  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
   const [authPage, setAuthPage] = useState("login");
   const [loggedIn, setLoggedIn] = useState(() => !!localStorage.getItem("access_token"));
 
@@ -55,6 +55,12 @@ export default function App() {
     const saved = localStorage.getItem("read_announcements");
     return saved ? JSON.parse(saved) : [];
   });
+
+
+  useEffect(() => {
+  localStorage.setItem("theme", theme);
+}, [theme]);
+
 
   // ── TRACK WINDOW RESIZE ──
   useEffect(() => {
@@ -110,6 +116,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    const savedTheme = localStorage.getItem("theme");
     localStorage.clear();
     setStudent(null);
     setLoggedIn(false);
@@ -271,6 +278,7 @@ export default function App() {
                 flex: 1,
                 display: "flex",
                 flexDirection: "column",
+                marginLeft: sidebarWidth, 
                 minHeight: "100vh",
                 overflow: "hidden",
                 transition: "margin-left .25s ease",

@@ -2,6 +2,7 @@ import { useState } from "react";
 import Icon from "../components/Icon";
 import { card } from "../utils/styles";
 import API from "../api/api";
+import logo from "../utils/logo.png";
 
 // ── Reusable OTP Box Component ──
 const OtpInput = ({ otp, setOtp, idPrefix = "otp" }) => {
@@ -313,8 +314,8 @@ export default function LoginPage({ setAuthPage, onLogin }) {
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)", padding: 16 }}>
       <div style={{ width: "100%", maxWidth: 400 }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--amber)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px", color: "#0C0E14" }}>
-            <Icon n="brain" s={22} />
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--border)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px", color: "#0C0E14" }}>
+            <img src={logo} alt="logo" style={{ width: 30, height: 30, objectFit: "contain" }} />
           </div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--white)", marginBottom: 4 }}>IntellectaFlow</h1>
           <p style={{ color: "var(--muted)", fontSize: 13 }}>Sign in to your student account</p>

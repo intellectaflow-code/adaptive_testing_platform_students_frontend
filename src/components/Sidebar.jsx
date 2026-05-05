@@ -13,38 +13,41 @@ const NAV_ITEMS = [
 export default function Sidebar({ page, setPage, student, onLogout, col, setCol }) {
   return (
     <aside
-      style={{
-        width: col ? 52 : 220,
-        height: "100%",         
-        minHeight: "100vh",
-        background: "var(--surface)",
-        borderRight: "1px solid var(--border)",
-        display: "flex",
-        flexDirection: "column",
-        flexShrink: 0,
-        transition: "width .25s ease",
-        zIndex: "inherit",
-        overflow: "hidden",
-      }}
+        style={{
+          width: col ? 52 : 220,
+          height: "100vh",
+          position: "fixed",
+          top: 0,
+          left: 0,
+          background: "var(--surface)",
+          borderRight: "1px solid var(--border)",
+          display: "flex",
+          flexDirection: "column",
+          flexShrink: 0,
+          transition: "width .25s ease",
+          zIndex: 100,
+          overflow: "hidden",
+        }}
     >
       {/* Logo — click to expand/collapse */}
       <div
         style={{
-          padding: "16px 12px 14px",
+          padding: col ? "20px 0" : "20px 16px",
           borderBottom: "1.5px solid var(--border2)",
           display: "flex",
           alignItems: "center",
-          gap: 10,
-          minHeight: 54,
+          justifyContent: col ? "center" : "flex-start",
+          gap: 12,
+          minHeight: 68,
         }}
       >
         <button
           onClick={() => setCol(!col)}
           title={col ? "Expand sidebar" : "Collapse sidebar"}
           style={{
-            width: 28,
-            height: 28,
-            borderRadius: 8,
+            width: 32,
+            height: 32,
+            borderRadius: 9,
             background: "#FFFFFF",
             display: "flex",
             alignItems: "center",
@@ -54,18 +57,24 @@ export default function Sidebar({ page, setPage, student, onLogout, col, setCol 
             border: "none",
             cursor: "pointer",
             padding: 0,
-            transition: "opacity .15s",
+            transition: "opacity .15s, transform .15s",
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.opacity = ".85")}
-          onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.opacity = ".85";
+            e.currentTarget.style.transform = "scale(0.95)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.opacity = "1";
+            e.currentTarget.style.transform = "scale(1)";
+          }}
         >
           <img src={logo} alt="logo" style={{ width: 20, height: 20, objectFit: "contain" }} />
         </button>
         {!col && (
-          <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2, overflow: "hidden" }}>
             <span
               style={{
-                fontSize: 16,
+                fontSize: 15,
                 fontWeight: 700,
                 color: "var(--white)",
                 letterSpacing: "-0.2px",
@@ -81,7 +90,8 @@ export default function Sidebar({ page, setPage, student, onLogout, col, setCol 
                 color: "var(--muted)",
                 whiteSpace: "nowrap",
                 overflow: "hidden",
-                letterSpacing: "0.3px",
+                letterSpacing: "0.4px",
+                textTransform: "uppercase",
               }}
             >
               Student Portal
@@ -94,13 +104,30 @@ export default function Sidebar({ page, setPage, student, onLogout, col, setCol 
       <nav
         style={{
           flex: 1,
-          padding: "10px 8px",
+          padding: col ? "14px 8px" : "14px 10px",
           display: "flex",
           flexDirection: "column",
-          gap: 1,
+          gap: 4,
           overflowY: "auto",
         }}
       >
+        {/* Optional section label */}
+        {!col && (
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: 600,
+              color: "var(--muted)",
+              letterSpacing: "0.7px",
+              textTransform: "uppercase",
+              padding: "2px 10px 8px",
+              opacity: 0.6,
+            }}
+          >
+            Menu
+          </span>
+        )}
+
         {NAV_ITEMS.map((item) => {
           const active = page === item.id;
           return (
@@ -112,21 +139,49 @@ export default function Sidebar({ page, setPage, student, onLogout, col, setCol 
                 display: "flex",
                 alignItems: "center",
                 gap: 12,
-                padding: col ? "10px 12px" : "9px 10px",
+                padding: col ? "12px 0" : "11px 12px",
                 borderRadius: "var(--radius)",
                 border: "none",
                 cursor: "pointer",
-                background: active ? "rgba(240,165,0,0.1)" : "none",
+                background: active ? "rgba(240,165,0,0.12)" : "transparent",
                 color: active ? "var(--amber)" : "var(--muted)",
                 fontWeight: active ? 600 : 400,
-                fontSize: 13,
+                fontSize: 13.5,
                 justifyContent: col ? "center" : "flex-start",
-                transition: "all .15s",
+                transition: "background .15s, color .15s",
                 whiteSpace: "nowrap",
                 overflow: "hidden",
+                position: "relative",
+                width: "100%",
+              }}
+              onMouseEnter={(e) => {
+                if (!active) {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+                  e.currentTarget.style.color = "var(--white)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!active) {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.color = "var(--muted)";
+                }
               }}
             >
-              <Icon n={item.n} s={16} />
+              {/* Active indicator bar */}
+              {active && !col && (
+                <span
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: "18%",
+                    height: "64%",
+                    width: 3,
+                    borderRadius: "0 3px 3px 0",
+                    background: "var(--amber)",
+                  }}
+                />
+              )}
+              <Icon n={item.n} s={17} />
               {!col && (
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
                   {item.label}
@@ -138,7 +193,15 @@ export default function Sidebar({ page, setPage, student, onLogout, col, setCol 
       </nav>
 
       {/* User info + Logout */}
-      <div style={{ borderTop: "1.5px solid var(--border2)", padding: "10px 8px" }}>
+      <div
+        style={{
+          borderTop: "1.5px solid var(--border2)",
+          padding: col ? "12px 8px" : "12px 10px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 6,
+        }}
+      >
         {/* Profile button */}
         <button
           onClick={() => setPage("profile")}
@@ -146,9 +209,8 @@ export default function Sidebar({ page, setPage, student, onLogout, col, setCol 
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 9,
-            padding: col ? "10px 12px" : "9px 10px",
-            marginBottom: 4,
+            gap: 10,
+            padding: col ? "12px 0" : "10px 12px",
             background: page === "profile" ? "rgba(240,165,0,0.08)" : "var(--surface2)",
             borderRadius: "var(--radius)",
             border: page === "profile" ? "1px solid var(--amber)" : "1px solid var(--border)",
@@ -162,19 +224,18 @@ export default function Sidebar({ page, setPage, student, onLogout, col, setCol 
         >
           <div
             style={{
-              width: 28,
-              height: 28,
+              width: 32,
+              height: 32,
               borderRadius: "50%",
               background: "var(--amber)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: 700,
               color: "#0C0E14",
               flexShrink: 0,
               overflow: "hidden",
-              padding: 0,
             }}
           >
             {student?.profile_photo ? (
@@ -191,7 +252,7 @@ export default function Sidebar({ page, setPage, student, onLogout, col, setCol 
             <div style={{ overflow: "hidden", textAlign: "left" }}>
               <div
                 style={{
-                  fontSize: 12,
+                  fontSize: 13,
                   fontWeight: 600,
                   color: "var(--white)",
                   whiteSpace: "nowrap",
@@ -201,7 +262,9 @@ export default function Sidebar({ page, setPage, student, onLogout, col, setCol 
               >
                 {student?.full_name}
               </div>
-              <div style={{ fontSize: 10, color: "var(--muted)" }}>{student?.usn}</div>
+              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 1 }}>
+                {student?.usn}
+              </div>
             </div>
           )}
         </button>
@@ -214,22 +277,29 @@ export default function Sidebar({ page, setPage, student, onLogout, col, setCol 
             display: "flex",
             alignItems: "center",
             gap: 10,
-            padding: col ? "10px 12px" : "9px 10px",
+            padding: col ? "11px 0" : "10px 12px",
             borderRadius: "var(--radius)",
             border: "none",
             cursor: "pointer",
-            background: "none",
+            background: "transparent",
             color: "var(--red)",
-            fontSize: 13,
+            fontSize: 13.5,
+            fontWeight: 500,
             justifyContent: col ? "center" : "flex-start",
             width: "100%",
-            opacity: 0.8,
-            transition: "opacity .15s",
+            opacity: 0.75,
+            transition: "opacity .15s, background .15s",
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-          onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.8")}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.opacity = "1";
+            e.currentTarget.style.background = "rgba(255,80,80,0.07)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.opacity = "0.75";
+            e.currentTarget.style.background = "transparent";
+          }}
         >
-          <Icon n="logout" s={16} />
+          <Icon n="logout" s={17} />
           {!col && <span>Log Out</span>}
         </button>
       </div>
