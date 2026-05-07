@@ -10,6 +10,8 @@ const SVG_PATHS = {
   clock: "M12 6v6l4 2",
   check: "M5 13l4 4L19 7",
   x: "M18 6L6 18M6 6l12 12",
+  download:"M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3",
+  refresh:"M21 12a9 9 0 11-2.64-6.36M21 3v6h-6",
   flag: "M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7",
   chevL: "M15 18l-6-6 6-6",
   chevR: "M9 18l6-6-6-6",

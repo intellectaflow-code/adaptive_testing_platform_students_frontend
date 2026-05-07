@@ -316,6 +316,7 @@ export default function QuizPage({ config, setPage, setResults }) {
 
       const res            = await API.post(endpoint, payload);
       const submissionData = res.data;
+      console.log("[doSubmit] submissionData:", submissionData);
 
       if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
 
@@ -336,24 +337,34 @@ export default function QuizPage({ config, setPage, setResults }) {
 
       const correctCount = config.type === "ai" ? submissionData.correct_answers : submissionData.score;
       const totalCount   = config.type === "ai" ? submissionData.total_questions : submissionData.total_possible || qs.length;
-
       setResults({
-        questions:  finalQuestions,
-        correct:    correctCount,
-        total:      totalCount,
-        score:      Math.round((correctCount / totalCount) * 100),
-        timeSpent:  spent,
+        questions:           finalQuestions,
+        correct:             correctCount,
+        total:               totalCount,
+        score:               Math.round((correctCount / totalCount) * 100),
+        timeSpent:           spent,
+        time_spent_seconds:  spent,          // alias used by ResultsPage
         tabs,
         config,
+        attempt_id:
+            submissionData.attempt_id      ||
+            submissionData.attemptId       ||
+            submissionData.quiz_attempt_id ||
+            submissionData.id              ||
+            config.attempt_id              || // fallback: the attempt_id sent in the payload
+            null,   // ← THE FIX
       });
 
       setSubmitting(false);
       setPage("results");
 
-    } catch (err) {
-      console.error("Submit failed:", err.response?.data || err);
-      if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
-      setResults({ questions: [], correct: 0, total: qs.length, timeSpent: 0, tabs, config });
+      } catch (err) {
+        console.error("Submit failed:", err.response?.data || err);
+        if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+        setResults({
+          questions: [], correct: 0, total: qs.length, timeSpent: 0, tabs, config,
+          attempt_id: config.attempt_id || null,  // submissionData not in scope here
+        });
       setSubmitting(false);
       setPage("results");
     }

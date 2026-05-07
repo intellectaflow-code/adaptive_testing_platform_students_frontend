@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useTooltip } from "../hooks/useTooltip";
 import Tooltip from "./Tooltip";
 import Select from "./Select";
@@ -40,24 +40,28 @@ export default function LineChart({ data: rawData, attempts = [], h = 160, onTre
   }, [rawData, attempts, selectedSubject]);
 
   // ── Trend color ───────────────────────────────────────────────────
-  const trendColor = useMemo(() => {
-    let color = "#22c55e";
+const trendColor = useMemo(() => {
+  let color = "#22c55e";
 
-    if (filteredData.length >= 2) {
-      const first = filteredData[0]?.score ?? 0;
-      const last  = filteredData[filteredData.length - 1]?.score ?? 0;
-      const diff  = last - first;
-      if (diff > 1)   color = "#22c55e"; // rising   → green
-      else if (diff < -10) color = "#ef4444"; // dropped  → red
-      else if (diff < -1)  color = "#eab308"; // dropping → yellow
-      else color = "#22c55e";
-    } else {
-      color = "#f59e0b";
-    }
+  if (filteredData.length >= 2) {
+    const first = filteredData[0]?.score ?? 0;
+    const last  = filteredData[filteredData.length - 1]?.score ?? 0;
+    const diff  = last - first;
+    if (diff > 1)        color = "#22c55e";
+    else if (diff < -10) color = "#ef4444";
+    else if (diff < -1)  color = "#eab308";
+    else                 color = "#22c55e";
+  } else {
+    color = "#f59e0b";
+  }
 
-    onTrendColor?.(color);
-    return color;
-  }, [filteredData, onTrendColor]);
+  return color; // ← no longer calls onTrendColor here
+}, [filteredData]);
+
+// Notify parent AFTER render, not during
+useEffect(() => {
+  onTrendColor?.(trendColor);
+}, [trendColor, onTrendColor]);
 
   if (!filteredData || filteredData.length === 0) {
     return (

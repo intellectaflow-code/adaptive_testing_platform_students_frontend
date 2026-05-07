@@ -1,8 +1,13 @@
 import Icon from "../components/Icon";
 import { card, scoreColor } from "../utils/styles";
 import Loader from "../components/loader";
+import { ResultInsight } from "../components/KeyInsights";
+import { useState } from "react";
 
-export default function ResultsPage({ results, setPage, fromDashboard }) {
+export default function ResultsPage({ results, setPage, fromDashboard, student }) {
+  // FIX 1: useState moved ABOVE the early return to comply with Rules of Hooks
+  const [downloading, setDownloading] = useState(false);
+
   if (!results) return <Loader variant="results" />;
 
   const resultConfig = results.config || {};
@@ -19,10 +24,73 @@ export default function ResultsPage({ results, setPage, fromDashboard }) {
     type:    resultConfig.type    || results.type,
   };
 
+  // Resolve attempt_id from all possible field names across quiz types
+  const attemptId = (() => {
+    const direct =
+      results.attempt_id      ||
+      results.attemptId       ||
+      results.quiz_attempt_id ||
+      results.id              ||
+      null;
+    if (direct) return direct;
+
+    const nested = results.result || results.data || {};
+    return (
+      nested.attempt_id      ||
+      nested.attemptId       ||
+      nested.quiz_attempt_id ||
+      nested.id              ||
+      null
+    );
+  })();
+
   const wrong         = total - correct;
   const accuracyScore = total > 0 ? Math.round((correct / total) * 100) : 0;
   const scoreDisplayColor = scoreColor(accuracyScore);
-  const mins = Math.floor(timeSpent / 60), secs = timeSpent % 60;
+  const mins = Math.floor(timeSpent / 60);
+  // FIX 2: Math.floor prevents decimal seconds if API returns a float
+  const secs = Math.floor(timeSpent % 60);
+
+  // ── Download Result PDF ──────────────────────────────────────────────────────
+  const handleDownloadPDF = async () => {
+    if (!attemptId) {
+      alert("No attempt ID found — cannot generate report.");
+      return;
+    }
+    setDownloading(true);
+    try {
+      const res = await fetch(
+        `/quizzes/student/report/result/${attemptId}`,
+        {
+          method: "GET",
+          credentials: "include",
+        }
+      );
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("Server error:", res.status, text);
+        throw new Error(`PDF generation failed (${res.status}): ${text}`);
+      }
+
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `result_${(student?.name || "student").replace(/\s+/g, "_")}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      // FIX 3: Deferred revoke prevents race condition where revoke fires before
+      // the browser has started the download (click() is async in some browsers)
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      console.error("PDF download error:", err);
+      alert(`Could not generate PDF: ${err.message}`);
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <>
@@ -76,20 +144,40 @@ export default function ResultsPage({ results, setPage, fromDashboard }) {
           gap: 6px;
         }
 
+        /* FIX 4: Removed duplicate .rp-download-btn CSS block that conflicted
+           with the inline style prop on the button element. Keeping only the
+           shared/non-overridden properties here. */
+        .rp-download-btn {
+          transition: opacity 0.15s;
+        }
+        .rp-download-btn:hover:not(:disabled) { opacity: 0.8; }
+        .rp-download-btn:disabled {
+          cursor: not-allowed;
+        }
+
+        /* Spinner for download */
+        @keyframes rp-spin { to { transform: rotate(360deg); } }
+        .rp-spinner {
+          width: 12px; height: 12px;
+          border: 2px solid var(--border2);
+          border-top-color: var(--body);
+          border-radius: 50%;
+          animation: rp-spin 0.7s linear infinite;
+          flex-shrink: 0;
+        }
+
         /* ── MOBILE OVERRIDES ── */
         @media (max-width: 600px) {
           .rp-wrap {
             padding: 14px 12px;
           }
 
-          /* Stack score + info vertically, actions go below */
           .rp-summary-inner {
             flex-direction: column;
             align-items: stretch;
             gap: 14px;
           }
 
-          /* Score + label row on mobile */
           .rp-score-block {
             display: flex;
             align-items: center;
@@ -100,12 +188,10 @@ export default function ResultsPage({ results, setPage, fromDashboard }) {
             font-size: 40px;
           }
 
-          /* Stats: more compact on mobile */
           .rp-stats {
             gap: 14px;
           }
 
-          /* Actions: full-width row on mobile */
           .rp-actions {
             flex-direction: row;
             margin-left: 0;
@@ -115,12 +201,10 @@ export default function ResultsPage({ results, setPage, fromDashboard }) {
             flex: 1;
           }
 
-          /* Options: single column on small screens */
           .rp-options-grid {
             grid-template-columns: 1fr;
           }
 
-          /* Question text smaller */
           .rp-q-text {
             font-size: 13px !important;
           }
@@ -210,8 +294,50 @@ export default function ResultsPage({ results, setPage, fromDashboard }) {
               >
                 Dashboard
               </button>
+
+              <button
+                className="rp-download-btn"
+                onClick={handleDownloadPDF}
+                disabled={downloading || !attemptId}
+                title={!attemptId ? "No attempt ID available" : "Download your result as a PDF report"}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  gap: 6, padding: "8px 18px",
+                  background: "var(--surface2)",
+                  border: "1px solid var(--border2)",
+                  borderRadius: "var(--radius)",
+                  color: "var(--body)",
+                  cursor: attemptId && !downloading ? "pointer" : "not-allowed",
+                  fontSize: 12, fontWeight: 600,
+                  opacity: (!attemptId || downloading) ? 0.5 : 1,
+                }}
+              >
+                {downloading ? (
+                  <><div className="rp-spinner" /> Generating…</>
+                ) : (
+                  <>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" strokeWidth="2.2"
+                      strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                      <polyline points="7 10 12 15 17 10"/>
+                      <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    Download PDF
+                  </>
+                )}
+              </button>
             </div>
           </div>
+
+          {/* ── AI Insight strip — spans full width below the summary row ── */}
+          <ResultInsight
+            correct={correct}
+            total={total}
+            timeSpent={timeSpent}
+            config={config}
+            questions={questions}
+          />
         </div>
 
         {/* ── Question Review ── */}

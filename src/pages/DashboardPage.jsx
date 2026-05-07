@@ -8,6 +8,8 @@ import CalDrop from "../components/CalDrop";
 import { card, scoreColor, pill } from "../utils/styles";
 import Loader from "../components/loader";
 import API from "../api/api";
+import DownloadReport from "../components/DownloadReport";
+import KeyInsights from "../components/KeyInsights";
 
 const COLORS = [
   "#F59E0B", "#10B981", "#3B82F6", "#EF4444", "#8B5CF6",
@@ -49,6 +51,13 @@ export default function DashboardPage({ setPage, setAttemptResult, user }) {
   const [courses, setCourses] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [trendColor, setTrendColor] = useState("#22c55e");
+  const [profile, setProfile] = useState(null);
+
+  useEffect(() => {
+    API.get("/profiles/me")
+      .then((res) => setProfile(res.data))
+      .catch((err) => console.error("Profile fetch failed:", err));
+  }, []);
 
   // ── RESPONSIVE ──
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
@@ -224,9 +233,9 @@ export default function DashboardPage({ setPage, setAttemptResult, user }) {
   const viewMoreBtn = (expanded, toggle) => (
     <button
       onClick={toggle}
-      style={{ width: "100%", marginTop: 10, padding: "7px", background: "none", border: "1px solid var(--border2)", borderRadius: "var(--radius)", color: "var(--muted)", cursor: "pointer", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, transition: "all .15s" }}
+      style={{ width: "100%", marginTop: 10, padding: "7px", background: "none", border: "1px solid var(--border2)", borderRadius: "var(--radius)", color: "var(--white)", cursor: "pointer", fontSize: 12, fontWeight: 500, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, transition: "all .15s" }}
       onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--amber)"; e.currentTarget.style.color = "var(--amber)"; }}
-      onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border2)"; e.currentTarget.style.color = "var(--muted)"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border2)"; e.currentTarget.style.color = "var(--white)"; }}
     >
       {expanded ? <><Icon n="chevU" s={12} /> Show Less</> : <>View More <Icon n="chevD" s={12} /></>}
     </button>
@@ -261,14 +270,12 @@ export default function DashboardPage({ setPage, setAttemptResult, user }) {
               />
             )}
           </div>
-          <div style={{ display: "flex", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", overflow: "hidden" }}>
-            {[["teacher", "Enrolled"]].map(([id, lbl]) => (
-              <button key={id} onClick={() => setFilter(id)}
-                style={{ padding: "6px 13px", border: "none", cursor: "pointer", background: filter === id ? "var(--amber)" : "transparent", color: filter === id ? "#0C0E14" : "var(--muted)", fontWeight: filter === id ? 700 : 400, fontSize: 12 }}>
-                {lbl}
-              </button>
-            ))}
-          </div>
+          <DownloadReport
+            user={profile}
+            computedStats={computedStats}
+            subjects={subjects}
+            attempts={attempts}
+          />
         </div>
       </div>
 
@@ -284,36 +291,38 @@ export default function DashboardPage({ setPage, setAttemptResult, user }) {
         ))}
       </div>
 
-      {/* ── Subject Overview (radial) ── */}
-      <div style={card({ padding: 16, marginBottom: 14 })}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 8, textAlign: "center" }}>Subject Overview</div>
-        <RadialChart subjects={subjects} avgScore={computedStats.avg_score} />
-        <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: 8 }}>
-          {subjects.map((s, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11 }}>
-              <div style={{ width: 8, height: 8, borderRadius: 2, flexShrink: 0, background: s.color }} />
-              <span style={{ flex: 1, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
-              <span style={{ color: s.color, fontWeight: 600 }}>{s.score}%</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* ── Score Trend + Radial Chart: side by side ── */}
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.6fr 1fr", gap: 14, marginBottom: 14 }}>
 
-      {/* ── Score Trend + Attendance: stacked on mobile ── */}
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.4fr 1fr", gap: 14, marginBottom: 13 }}>
+        {/* Score Trend */}
         <div style={card({ padding: 20 })}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 6 }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: "var(--white)" }}>Score Trend</span>
             <div style={{ display: "flex", gap: 12, fontSize: 11, color: "var(--muted)" }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: trendColor }} /> You</span>
-              <span style={{ display: "flex", alignItems: "center", gap: 5 }}><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: "var(--border2)" }} /> Class Avg</span>
+              <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: trendColor }} /> You
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: "var(--border2)" }} /> Class Avg
+              </span>
             </div>
           </div>
           <LineChart data={trend} attempts={attempts} onTrendColor={setTrendColor} />
         </div>
-        <div style={card({ padding: 20 })}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 12 }}>Attendance</div>
-          <AttendanceBar attempts={attempts} />
+
+        {/* Subject Overview (radial) */}
+        <div style={card({ padding: 16 })}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 8, textAlign: "center" }}>Subject Overview</div>
+          <RadialChart subjects={subjects} avgScore={computedStats.avg_score} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: 8 }}>
+            {subjects.map((s, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11 }}>
+                <div style={{ width: 8, height: 8, borderRadius: 2, flexShrink: 0, background: s.color }} />
+                <span style={{ flex: 1, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.name}</span>
+                <span style={{ color: s.color, fontWeight: 600 }}>{s.score}%</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -335,7 +344,7 @@ export default function DashboardPage({ setPage, setAttemptResult, user }) {
       </div>
 
       {/* ── Leaderboard + Attempts: stacked on mobile ── */}
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1.7fr", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1.7fr", gap: 14, marginBottom: 14 }}>
 
         {/* Leaderboard */}
         <div style={card({ padding: 20 })}>
@@ -449,6 +458,18 @@ export default function DashboardPage({ setPage, setAttemptResult, user }) {
           {viewMoreBtn(showAllAttempts, () => setShowAllAttempts(!showAllAttempts))}
         </div>
       </div>
+
+      {/* ── Key Insights: full width horizontal strip at bottom ── */}
+      <div style={card({ padding: "18px 22px" })}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--white)", marginBottom: 14 }}>Key Insights</div>
+        <KeyInsights
+          computedStats={computedStats}
+          subjects={subjects}
+          attempts={attempts}
+          horizontal
+        />
+      </div>
+
     </div>
   );
 }

@@ -320,7 +320,7 @@ export default function App() {
                 )}
 
                 {page === "results" && results && (
-                  <ResultsPage results={results} setPage={setPage} />
+                  <ResultsPage results={results} setPage={setPage} student={student} />
                 )}
 
                 {page === "attempt-result" && attemptResult && (
