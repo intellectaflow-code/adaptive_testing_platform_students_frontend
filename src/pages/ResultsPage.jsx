@@ -2,22 +2,19 @@ import Icon from "../components/Icon";
 import { card, scoreColor } from "../utils/styles";
 import Loader from "../components/loader";
 import { ResultInsight } from "../components/KeyInsights";
-import { useState } from "react";
+import DownloadReport from "../components/DownloadReport";   // ← import
 
 export default function ResultsPage({ results, setPage, fromDashboard, student }) {
-  // FIX 1: useState moved ABOVE the early return to comply with Rules of Hooks
-  const [downloading, setDownloading] = useState(false);
-
   if (!results) return <Loader variant="results" />;
 
   const resultConfig = results.config || {};
 
-  const questions  = results.questions || [];
-  const correct    = results.correct ?? 0;
-  const total      = results.total ?? 0;
-  const timeSpent  = results.timeSpent || results.time_spent_seconds || 0;
-  const tabs       = results.tabs || 0;
-  const config     = {
+  const questions = results.questions || [];
+  const correct   = results.correct   ?? 0;
+  const total     = results.total     ?? 0;
+  const timeSpent = results.timeSpent || results.time_spent_seconds || 0;
+  const tabs      = results.tabs      || 0;
+  const config    = {
     title:   resultConfig.title   || results.test_title,
     subject: resultConfig.subject || results.subject,
     topic:   resultConfig.topic   || results.topic,
@@ -44,53 +41,11 @@ export default function ResultsPage({ results, setPage, fromDashboard, student }
     );
   })();
 
-  const wrong         = total - correct;
-  const accuracyScore = total > 0 ? Math.round((correct / total) * 100) : 0;
+  const wrong            = total - correct;
+  const accuracyScore    = total > 0 ? Math.round((correct / total) * 100) : 0;
   const scoreDisplayColor = scoreColor(accuracyScore);
   const mins = Math.floor(timeSpent / 60);
-  // FIX 2: Math.floor prevents decimal seconds if API returns a float
   const secs = Math.floor(timeSpent % 60);
-
-  // ── Download Result PDF ──────────────────────────────────────────────────────
-  const handleDownloadPDF = async () => {
-    if (!attemptId) {
-      alert("No attempt ID found — cannot generate report.");
-      return;
-    }
-    setDownloading(true);
-    try {
-      const res = await fetch(
-        `/quizzes/student/report/result/${attemptId}`,
-        {
-          method: "GET",
-          credentials: "include",
-        }
-      );
-
-      if (!res.ok) {
-        const text = await res.text();
-        console.error("Server error:", res.status, text);
-        throw new Error(`PDF generation failed (${res.status}): ${text}`);
-      }
-
-      const blob = await res.blob();
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement("a");
-      a.href     = url;
-      a.download = `result_${(student?.name || "student").replace(/\s+/g, "_")}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      // FIX 3: Deferred revoke prevents race condition where revoke fires before
-      // the browser has started the download (click() is async in some browsers)
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (err) {
-      console.error("PDF download error:", err);
-      alert(`Could not generate PDF: ${err.message}`);
-    } finally {
-      setDownloading(false);
-    }
-  };
 
   return (
     <>
@@ -102,7 +57,6 @@ export default function ResultsPage({ results, setPage, fromDashboard, student }
           margin: 0 auto;
         }
 
-        /* Score summary card inner layout */
         .rp-summary-inner {
           display: flex;
           align-items: center;
@@ -110,7 +64,6 @@ export default function ResultsPage({ results, setPage, fromDashboard, student }
           flex-wrap: wrap;
         }
 
-        /* Score circle */
         .rp-score-num {
           font-size: 48px;
           font-weight: 800;
@@ -122,14 +75,12 @@ export default function ResultsPage({ results, setPage, fromDashboard, student }
           margin-top: 3px;
         }
 
-        /* Stats row */
         .rp-stats {
           display: flex;
           gap: 20px;
           flex-wrap: wrap;
         }
 
-        /* Action buttons column */
         .rp-actions {
           display: flex;
           flex-direction: column;
@@ -137,40 +88,17 @@ export default function ResultsPage({ results, setPage, fromDashboard, student }
           margin-left: auto;
         }
 
-        /* Question options grid */
         .rp-options-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 6px;
         }
 
-        /* FIX 4: Removed duplicate .rp-download-btn CSS block that conflicted
-           with the inline style prop on the button element. Keeping only the
-           shared/non-overridden properties here. */
-        .rp-download-btn {
-          transition: opacity 0.15s;
-        }
-        .rp-download-btn:hover:not(:disabled) { opacity: 0.8; }
-        .rp-download-btn:disabled {
-          cursor: not-allowed;
-        }
-
-        /* Spinner for download */
+        /* Spinner keyframes used by DownloadReport when rendered here */
         @keyframes rp-spin { to { transform: rotate(360deg); } }
-        .rp-spinner {
-          width: 12px; height: 12px;
-          border: 2px solid var(--border2);
-          border-top-color: var(--body);
-          border-radius: 50%;
-          animation: rp-spin 0.7s linear infinite;
-          flex-shrink: 0;
-        }
 
-        /* ── MOBILE OVERRIDES ── */
         @media (max-width: 600px) {
-          .rp-wrap {
-            padding: 14px 12px;
-          }
+          .rp-wrap { padding: 14px 12px; }
 
           .rp-summary-inner {
             flex-direction: column;
@@ -184,30 +112,20 @@ export default function ResultsPage({ results, setPage, fromDashboard, student }
             gap: 14px;
           }
 
-          .rp-score-num {
-            font-size: 40px;
-          }
+          .rp-score-num { font-size: 40px; }
 
-          .rp-stats {
-            gap: 14px;
-          }
+          .rp-stats { gap: 14px; }
 
           .rp-actions {
             flex-direction: row;
             margin-left: 0;
             gap: 8px;
           }
-          .rp-actions button {
-            flex: 1;
-          }
+          .rp-actions button { flex: 1; }
 
-          .rp-options-grid {
-            grid-template-columns: 1fr;
-          }
+          .rp-options-grid { grid-template-columns: 1fr; }
 
-          .rp-q-text {
-            font-size: 13px !important;
-          }
+          .rp-q-text { font-size: 13px !important; }
         }
       `}</style>
 
@@ -295,42 +213,16 @@ export default function ResultsPage({ results, setPage, fromDashboard, student }
                 Dashboard
               </button>
 
-              <button
-                className="rp-download-btn"
-                onClick={handleDownloadPDF}
-                disabled={downloading || !attemptId}
-                title={!attemptId ? "No attempt ID available" : "Download your result as a PDF report"}
-                style={{
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  gap: 6, padding: "8px 18px",
-                  background: "var(--surface2)",
-                  border: "1px solid var(--border2)",
-                  borderRadius: "var(--radius)",
-                  color: "var(--body)",
-                  cursor: attemptId && !downloading ? "pointer" : "not-allowed",
-                  fontSize: 12, fontWeight: 600,
-                  opacity: (!attemptId || downloading) ? 0.5 : 1,
-                }}
-              >
-                {downloading ? (
-                  <><div className="rp-spinner" /> Generating…</>
-                ) : (
-                  <>
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" strokeWidth="2.2"
-                      strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                      <polyline points="7 10 12 15 17 10"/>
-                      <line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
-                    Download PDF
-                  </>
-                )}
-              </button>
+              {/* ↓ All download logic lives in DownloadReport */}
+              <DownloadReport
+                mode="result"
+                attemptId={attemptId}
+                studentName={student?.name}
+              />
             </div>
           </div>
 
-          {/* ── AI Insight strip — spans full width below the summary row ── */}
+          {/* ── AI Insight strip ── */}
           <ResultInsight
             correct={correct}
             total={total}
@@ -355,15 +247,21 @@ export default function ResultsPage({ results, setPage, fromDashboard, student }
                 key={qi}
                 style={{
                   ...card({ padding: 14 }),
-                  borderLeft: `3px solid ${notAttempted ? "var(--amber)" : isCorrect ? "var(--green)" : "var(--red)"}`,
+                  borderLeft: `3px solid ${
+                    notAttempted ? "var(--amber)" : isCorrect ? "var(--green)" : "var(--red)"
+                  }`,
                 }}
               >
                 {/* Question header */}
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 10 }}>
                   <span style={{
                     width: 21, height: 21, borderRadius: 5, flexShrink: 0,
-                    background: isCorrect ? "rgba(74,222,128,0.1)" : notAttempted ? "var(--bg)" : "rgba(240,96,96,0.1)",
-                    border: `1px solid ${isCorrect ? "var(--green)" : notAttempted ? "var(--border2)" : "var(--red)"}`,
+                    background: isCorrect
+                      ? "rgba(74,222,128,0.1)"
+                      : notAttempted ? "var(--bg)" : "rgba(240,96,96,0.1)",
+                    border: `1px solid ${
+                      isCorrect ? "var(--green)" : notAttempted ? "var(--border2)" : "var(--red)"
+                    }`,
                     display: "flex", alignItems: "center", justifyContent: "center",
                     color: isCorrect ? "var(--green)" : notAttempted ? "var(--muted)" : "var(--red)",
                     fontSize: 11, fontWeight: 700,
@@ -413,7 +311,8 @@ export default function ResultsPage({ results, setPage, fromDashboard, student }
                       >
                         <span style={{
                           width: 19, height: 19, borderRadius: 4, flexShrink: 0,
-                          background: isCorrectOption ? "var(--green)" : isUserChoice ? "var(--red)" : "var(--surface2)",
+                          background: isCorrectOption
+                            ? "var(--green)" : isUserChoice ? "var(--red)" : "var(--surface2)",
                           display: "flex", alignItems: "center", justifyContent: "center",
                           color: "#0C0E14", fontSize: 10, fontWeight: 700,
                         }}>
@@ -425,7 +324,8 @@ export default function ResultsPage({ results, setPage, fromDashboard, student }
                         </span>
                         <span style={{
                           fontSize: 12,
-                          color: isCorrectOption ? "var(--green)" : isUserChoice ? "var(--red)" : "var(--body)",
+                          color: isCorrectOption
+                            ? "var(--green)" : isUserChoice ? "var(--red)" : "var(--body)",
                         }}>
                           {optText.replace(/^[A-D][).]\s*/, "")}
                         </span>
