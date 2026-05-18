@@ -93,6 +93,7 @@ const pick = (d) => {
         </button>
 
         <button
+          disabled={!rng.s}
           onClick={() => {
             onSelect(rng);
             onClose();
@@ -100,13 +101,14 @@ const pick = (d) => {
           style={{
             flex: 1,
             padding: "7px",
-            background: "var(--amber)",
+            background: rng.s ? "var(--amber)" : "var(--surface2)",
             border: "none",
             borderRadius: 8,
-            color: "#0C0E14",
-            cursor: "pointer",
+            color: rng.s ? "#0C0E14" : "var(--muted)",
+            cursor: rng.s ? "pointer" : "not-allowed",
             fontSize: 12,
-            fontWeight: 700
+            fontWeight: 700,
+            opacity: rng.s ? 1 : 0.5,
           }}
         >
           Apply

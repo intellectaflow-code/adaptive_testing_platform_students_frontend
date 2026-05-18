@@ -217,12 +217,12 @@ export default function DashboardPage({ setPage, setAttemptResult, user }) {
   const sortedLB = [...leaderboard].sort((a, b) => a.rank - b.rank);
   const lbShow = showAllLB ? sortedLB : sortedLB.slice(0, 5);
   const attShow = showAllAttempts ? attempts : attempts.slice(0, 5);
-
+// DashboardPage.jsx — openAttempt function
   const openAttempt = async (a) => {
     try {
       setLoading(true);
       const res = await API.get(`/analytics/attempt/${a.id}`);
-      setAttemptResult(res.data);
+      setAttemptResult({ ...res.data, attempt_id: a.id }); // ← inject attempt_id
       setPage("attempt-result");
     } catch (err) {
       console.error("Error fetching attempt:", err);
@@ -270,7 +270,10 @@ export default function DashboardPage({ setPage, setAttemptResult, user }) {
               />
             )}
           </div>
+
+          {/* ✅ Dashboard aggregate report only — no `a` reference here */}
           <DownloadReport
+            mode="dashboard"
             user={profile}
             computedStats={computedStats}
             subjects={subjects}
@@ -295,8 +298,8 @@ export default function DashboardPage({ setPage, setAttemptResult, user }) {
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.6fr 1fr", gap: 14, marginBottom: 14 }}>
 
         {/* Score Trend */}
-        <div style={card({ padding: 20 })}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 6 }}>
+        <div style={card({ paddingTop: 28, paddingRight: 20, paddingBottom: 12, paddingLeft: 20 })}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4, flexWrap: "wrap", gap: 6 }}>
             <span style={{ fontSize: 13, fontWeight: 600, color: "var(--white)" }}>Score Trend</span>
             <div style={{ display: "flex", gap: 12, fontSize: 11, color: "var(--muted)" }}>
               <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -390,24 +393,35 @@ export default function DashboardPage({ setPage, setAttemptResult, user }) {
             Attempts <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 400 }}>({attempts.length})</span>
           </div>
 
-          {/* ── Mobile: card list instead of table ── */}
+          {/* ── Mobile: card list ── */}
           {isMobile ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {attShow.map((a, i) => (
                 <div
                   key={i}
-                  onClick={() => openAttempt(a)}
-                  style={{ background: "var(--bg)", border: "1px solid var(--border2)", borderRadius: "var(--radius)", padding: "11px 13px", cursor: "pointer" }}
+                  style={{ background: "var(--bg)", border: "1px solid var(--border2)", borderRadius: "var(--radius)", padding: "11px 13px" }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
+                  {/* Top row: title + score — clicking navigates to attempt */}
+                  <div
+                    onClick={() => openAttempt(a)}
+                    style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 6, cursor: "pointer" }}
+                  >
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 12, color: "var(--white)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.title}</div>
                       <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 1 }}>{a.subject}</div>
                     </div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: scoreColor(a.score), flexShrink: 0 }}>{a.score}%</div>
                   </div>
+
+                  {/* Bottom row: pill + date + time + download icon */}
                   <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                    <span style={a.type === "ai" ? pill("var(--amber)", "rgba(240,165,0,0.1)") : a.type === "hod" ? pill("var(--purple)", "rgba(168,85,247,0.1)") : pill("var(--blue)", "rgba(96,165,250,0.1)")}>
+                    <span style={
+                      a.type === "ai"
+                        ? pill("var(--amber)", "rgba(240,165,0,0.1)")
+                        : a.type === "hod"
+                        ? pill("var(--purple)", "rgba(168,85,247,0.1)")
+                        : pill("var(--blue)", "rgba(96,165,250,0.1)")
+                    }>
                       {a.type === "ai" ? "AI" : a.type === "hod" ? "HOD" : "Teacher"}
                     </span>
                     <span style={{ fontSize: 10, color: "var(--muted)" }}>
@@ -416,6 +430,15 @@ export default function DashboardPage({ setPage, setAttemptResult, user }) {
                     <span style={{ fontSize: 10, color: "var(--muted)" }}>
                       {Math.floor((a.time_spent_seconds || 0) / 60)}m {(a.time_spent_seconds || 0) % 60}s
                     </span>
+                    {/* ✅ Per-attempt compact download button */}
+                    <div style={{ marginLeft: "auto" }}>
+                      <DownloadReport
+                        mode="result"
+                        compact
+                        attemptId={a.id}
+                        studentName={profile?.full_name || user?.full_name}
+                      />
+                    </div>
                   </div>
                 </div>
               ))}
@@ -425,28 +448,53 @@ export default function DashboardPage({ setPage, setAttemptResult, user }) {
             <div style={{ maxHeight: 320, overflowY: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
-                  <tr>{["Test", "Type", "Date", "Score", "Time"].map((h) => (
-                    <th key={h} style={{ padding: "5px 9px", textAlign: "left", fontSize: 11, color: "var(--muted)", fontWeight: 500, borderBottom: "1px solid var(--border)", textTransform: "uppercase" }}>{h}</th>
-                  ))}</tr>
+                  {/* ✅ Single header row with "Report" column — duplicate row removed */}
+                  <tr>
+                    {["Test", "Type", "Date", "Score", "Time", "Report"].map((h) => (
+                      <th key={h} style={{ padding: "5px 9px", textAlign: "left", fontSize: 11, color: "var(--muted)", fontWeight: 500, borderBottom: "1px solid var(--border)", textTransform: "uppercase" }}>{h}</th>
+                    ))}
+                  </tr>
                 </thead>
                 <tbody>
                   {attShow.map((a, i) => (
-                    <tr key={i} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }} onClick={() => openAttempt(a)}>
+                    // ✅ Row click navigates; download td stops propagation via DownloadReport's internal handler
+                    <tr
+                      key={i}
+                      onClick={() => openAttempt(a)}
+                      style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }}
+                    >
                       <td style={{ padding: "9px 9px" }}>
                         <div style={{ fontSize: 12, color: "var(--white)", fontWeight: 500 }}>{a.title}</div>
                         <div style={{ fontSize: 10, color: "var(--muted)" }}>{a.subject}</div>
                       </td>
                       <td style={{ padding: "9px 9px" }}>
-                        <span style={a.type === "ai" ? pill("var(--amber)", "rgba(240,165,0,0.1)") : a.type === "hod" ? pill("var(--purple)", "rgba(168,85,247,0.1)") : pill("var(--blue)", "rgba(96,165,250,0.1)")}>
+                        <span style={
+                          a.type === "ai"
+                            ? pill("var(--amber)", "rgba(240,165,0,0.1)")
+                            : a.type === "hod"
+                            ? pill("var(--purple)", "rgba(168,85,247,0.1)")
+                            : pill("var(--blue)", "rgba(96,165,250,0.1)")
+                        }>
                           {a.type === "ai" ? "AI" : a.type === "hod" ? "HOD" : "Teacher"}
                         </span>
                       </td>
                       <td style={{ padding: "9px 9px", fontSize: 11, color: "var(--muted)" }}>
                         {a.attempt_date ? new Date(a.attempt_date).toLocaleDateString() : "—"}
                       </td>
-                      <td style={{ padding: "9px 9px", fontSize: 12, fontWeight: 700, color: scoreColor(a.score) }}>{a.score}%</td>
+                      <td style={{ padding: "9px 9px", fontSize: 12, fontWeight: 700, color: scoreColor(a.score) }}>
+                        {a.score}%
+                      </td>
                       <td style={{ padding: "9px 9px", fontSize: 11, color: "var(--muted)" }}>
                         {Math.floor((a.time_spent_seconds || 0) / 60)}m {(a.time_spent_seconds || 0) % 60}s
+                      </td>
+                      {/* ✅ stopPropagation handled inside DownloadReport via e.stopPropagation() */}
+                      <td style={{ padding: "9px 9px" }} onClick={e => e.stopPropagation()}>
+                        <DownloadReport
+                          mode="result"
+                          compact
+                          attemptId={a.id}
+                          studentName={profile?.full_name || user?.full_name}
+                        />
                       </td>
                     </tr>
                   ))}

@@ -3,7 +3,7 @@ import { useTooltip } from "../hooks/useTooltip";
 import Tooltip from "./Tooltip";
 import Select from "./Select";
 
-export default function LineChart({ data: rawData, attempts = [], h = 160, onTrendColor }) {
+export default function LineChart({ data: rawData, attempts = [], h = 180, onTrendColor }) {
   const { tip, show, hide } = useTooltip();
   const [selectedSubject, setSelectedSubject] = useState("all");
 
@@ -71,8 +71,8 @@ useEffect(() => {
     );
   }
 
-  const W = 420, H = h;
-  const PAD = { t: 16, r: 16, b: 28, l: 32 };
+  const W = 560, H = h;
+  const PAD = { t: 36, r: 24, b: 28, l: 32 };
   const iW = W - PAD.l - PAD.r;
   const iH = H - PAD.t - PAD.b;
 
@@ -130,7 +130,7 @@ useEffect(() => {
 
       {/* ── Chart ── */}
       <div style={{ width: "100%", overflowX: "auto" }}>
-        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: H }}>
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto" }}>
           <defs>
             <linearGradient id="lg1" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={trendColor} stopOpacity="0.22" />

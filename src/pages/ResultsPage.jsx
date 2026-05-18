@@ -46,7 +46,7 @@ export default function ResultsPage({ results, setPage, fromDashboard, student }
   const scoreDisplayColor = scoreColor(accuracyScore);
   const mins = Math.floor(timeSpent / 60);
   const secs = Math.floor(timeSpent % 60);
-
+console.log("attemptId resolved:", attemptId, "from results:", results);
   return (
     <>
       <style>{`

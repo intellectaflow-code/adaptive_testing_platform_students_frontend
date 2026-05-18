@@ -1,5 +1,4 @@
 import { useState } from "react";
-import Icon from "../components/Icon";
 import API from "../api/api";
 
 /**
@@ -12,15 +11,11 @@ import API from "../api/api";
  * mode="dashboard" → POST /analytics/student/report  (with JSON payload)
  *   Required props: user, computedStats, subjects, attempts
  *
- * Both modes share the same loading / error / blob-download flow.
+ * compact=true → icon-only button, fits inside table cells / card rows
  */
 
 // ── Internal helpers ─────────────────────────────────────────────────────────
 
-/**
- * Fetches the PDF blob from the API.
- * Returns a Blob on success; throws on network error or non-PDF response.
- */
 async function fetchResultPDF(attemptId) {
   const res = await API.get(
     `/quizzes/student/report/result/${attemptId}`,
@@ -65,10 +60,6 @@ async function fetchDashboardPDF({ user, computedStats, subjects, attempts }) {
   return new Blob([res.data], { type: "application/pdf" });
 }
 
-/**
- * Validates that the blob starts with the %PDF magic bytes,
- * then triggers a browser download with the given filename.
- */
 async function downloadBlob(blob, filename) {
   const header = await blob.slice(0, 20).text();
   if (!header.includes("%PDF")) {
@@ -104,17 +95,21 @@ export default function DownloadReport({
   computedStats = {},
   subjects      = [],
   attempts      = [],
+
+  // compact=true → icon-only, no label; fits in table rows / card rows
+  compact = false,
 }) {
   const [loading, setLoading] = useState(false);
 
-  // result  → needs a valid attemptId
-  // dashboard → needs at least one attempt to report on
   const disabled =
     loading ||
     (mode === "result"    && !attemptId) ||
     (mode === "dashboard" && attempts.length === 0);
 
-  const handleDownload = async () => {
+  const handleDownload = async (e) => {
+    // Always stop propagation so clicking inside a <tr onClick> row
+    // doesn't also trigger row navigation
+    e?.stopPropagation();
     if (disabled) return;
     setLoading(true);
 
@@ -152,6 +147,36 @@ export default function DownloadReport({
       ? "No attempts to report on yet"
       : "Download your result as a PDF report";
 
+  // ── Compact (icon-only) style — for table cells and card rows ──
+  if (compact) {
+    return (
+      <button
+        onClick={handleDownload}
+        disabled={disabled}
+        title={title}
+        style={{
+          display:        "flex",
+          alignItems:     "center",
+          justifyContent: "center",
+          width:          28,
+          height:         28,
+          padding:        0,
+          background:     disabled ? "var(--surface2)" : "rgba(240,165,0,0.1)",
+          border:         `1px solid ${disabled ? "var(--border2)" : "rgba(240,165,0,0.3)"}`,
+          borderRadius:   "var(--radius)",
+          color:          disabled ? "var(--muted)" : "var(--amber)",
+          cursor:         disabled ? "not-allowed" : "pointer",
+          opacity:        disabled ? 0.5 : 1,
+          flexShrink:     0,
+          transition:     "opacity 0.15s, background 0.15s",
+        }}
+      >
+        {loading ? <Spinner size={11} /> : <DownloadIcon size={13} />}
+      </button>
+    );
+  }
+
+  // ── Full (label) style — for header / results page ──
   return (
     <button
       onClick={handleDownload}
@@ -172,16 +197,17 @@ export default function DownloadReport({
         fontWeight:     600,
         opacity:        disabled ? 0.5 : 1,
         transition:     "opacity 0.15s",
+        whiteSpace:     "nowrap",
       }}
     >
       {loading ? (
         <>
-          <Spinner />
+          <Spinner size={12} />
           Generating…
         </>
       ) : (
         <>
-          <DownloadIcon />
+          <DownloadIcon size={13} />
           Download PDF
         </>
       )}
@@ -191,26 +217,27 @@ export default function DownloadReport({
 
 // ── Tiny sub-components ──────────────────────────────────────────────────────
 
-function Spinner() {
+function Spinner({ size = 12 }) {
   return (
     <span
       style={{
-        width:          12,
-        height:         12,
+        width:          size,
+        height:         size,
         border:         "2px solid var(--border2)",
         borderTopColor: "var(--body)",
         borderRadius:   "50%",
         flexShrink:     0,
+        display:        "inline-block",
         animation:      "rp-spin 0.7s linear infinite",
       }}
     />
   );
 }
 
-function DownloadIcon() {
+function DownloadIcon({ size = 13 }) {
   return (
     <svg
-      width="13" height="13" viewBox="0 0 24 24"
+      width={size} height={size} viewBox="0 0 24 24"
       fill="none" stroke="currentColor"
       strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
     >

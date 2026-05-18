@@ -316,6 +316,7 @@ export default function App() {
                   <DashboardPage
                     setPage={setPage}
                     setAttemptResult={setAttemptResult}
+                    user={student}
                   />
                 )}
 
@@ -328,6 +329,7 @@ export default function App() {
                     results={attemptResult}
                     setPage={setPage}
                     fromDashboard
+                    student={student}
                   />
                 )}
 

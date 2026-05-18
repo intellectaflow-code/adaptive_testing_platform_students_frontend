@@ -338,21 +338,21 @@ export default function QuizPage({ config, setPage, setResults }) {
       const correctCount = config.type === "ai" ? submissionData.correct_answers : submissionData.score;
       const totalCount   = config.type === "ai" ? submissionData.total_questions : submissionData.total_possible || qs.length;
       setResults({
-        questions:           finalQuestions,
-        correct:             correctCount,
-        total:               totalCount,
-        score:               Math.round((correctCount / totalCount) * 100),
-        timeSpent:           spent,
-        time_spent_seconds:  spent,          // alias used by ResultsPage
+        questions:          finalQuestions,
+        correct:            correctCount,
+        total:              totalCount,
+        score:              Math.round((correctCount / totalCount) * 100),
+        timeSpent:          spent,
+        time_spent_seconds: spent,
         tabs,
         config,
         attempt_id:
-            submissionData.attempt_id      ||
-            submissionData.attemptId       ||
-            submissionData.quiz_attempt_id ||
-            submissionData.id              ||
-            config.attempt_id              || // fallback: the attempt_id sent in the payload
-            null,   // ← THE FIX
+          config.attempt_id              ||   // ← move this FIRST — you sent it in the payload
+          submissionData.attempt_id      ||
+          submissionData.attemptId       ||
+          submissionData.quiz_attempt_id ||
+          submissionData.id              ||
+          null,
       });
 
       setSubmitting(false);
