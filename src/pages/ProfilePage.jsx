@@ -3,6 +3,7 @@ import Icon from "../components/Icon";
 import { card, initials } from "../utils/styles";
 import Loader from "../components/loader";
 import API from "../api/api";
+import DownloadReport from "../components/DownloadReport";
 
 export default function ProfilePage({ student, setPage }) {
   const [courses, setCourses]               = useState([]);
@@ -53,6 +54,36 @@ export default function ProfilePage({ student, setPage }) {
     fetchCourses();
     fetchStats();
   }, []);
+
+  // ── Download report ──
+const handleDownloadReport = async () => {
+  setDownloadingReport(true);
+  try {
+    const res = await API.get("/profiles/report/download", {
+      responseType: "blob",
+    });
+
+    const disposition = res.headers["content-disposition"] || "";
+    const match = disposition.match(/filename="?([^"]+)"?/);
+    const filename = match
+      ? match[1]
+      : `Assessment_Report_${student.full_name.replace(/\s+/g, "_")}.pptx`;
+
+    const url = URL.createObjectURL(new Blob([res.data]));
+    const a   = document.createElement("a");
+    a.href     = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("Failed to download report:", err);
+    alert("Could not generate report. Please try again.");
+  } finally {
+    setDownloadingReport(false);
+  }
+};
 
   const computedStats = useMemo(() => {
     if (!attempts.length) {
@@ -209,6 +240,13 @@ export default function ProfilePage({ student, setPage }) {
             </button>
           </div>
         </div>
+
+      {/* ── Download Report button (full width, below header row) ── */}
+      <DownloadReport
+        mode="profile"
+        student={student}
+        isMobile={isMobile}
+      />
       </div>
 
       {/* ── Stats row — 2×2 grid on mobile, 4-col on wider ── */}

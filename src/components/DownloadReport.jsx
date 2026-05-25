@@ -1,20 +1,6 @@
 import { useState } from "react";
 import API from "../api/api";
 
-/**
- * DownloadReport — unified PDF download button.
- *
- * mode="result"    → GET /quizzes/student/report/result/:attemptId
- *   Required props: attemptId (string | number)
- *   Optional props: studentName (string)  — used in the saved filename
- *
- * mode="dashboard" → POST /analytics/student/report  (with JSON payload)
- *   Required props: user, computedStats, subjects, attempts
- *
- * compact=true → icon-only button, fits inside table cells / card rows
- */
-
-// ── Internal helpers ─────────────────────────────────────────────────────────
 
 async function fetchResultPDF(attemptId) {
   const res = await API.get(
@@ -60,12 +46,40 @@ async function fetchDashboardPDF({ user, computedStats, subjects, attempts }) {
   return new Blob([res.data], { type: "application/pdf" });
 }
 
+async function fetchProfileReport(student) {
+  const res = await API.get("/profiles/report/download", {
+    responseType: "blob",
+  });
+
+  const disposition = res.headers["content-disposition"] || "";
+  const match       = disposition.match(/filename="?([^"]+)"?/);
+  const filename    = match
+    ? match[1]
+    : `Assessment_Report_${(student?.full_name || "student").replace(/\s+/g, "_")}.pdf`;
+
+  return {
+    blob: new Blob([res.data], { type: "application/pdf" }),
+    filename,
+  };
+}
+
 async function downloadBlob(blob, filename) {
   const header = await blob.slice(0, 20).text();
   if (!header.includes("%PDF")) {
     throw new Error("Server did not return a valid PDF.");
   }
 
+  const url = window.URL.createObjectURL(blob);
+  const a   = document.createElement("a");
+  a.href     = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => window.URL.revokeObjectURL(url), 1_000);
+}
+
+async function downloadBlobDirect(blob, filename) {
   const url = window.URL.createObjectURL(blob);
   const a   = document.createElement("a");
   a.href     = url;
@@ -84,7 +98,7 @@ function safeFilename(name = "student") {
 
 export default function DownloadReport({
   // shared
-  mode = "dashboard",   // "result" | "dashboard"
+  mode = "dashboard",   // "result" | "dashboard" | "profile"
 
   // mode="result"
   attemptId    = null,
@@ -96,8 +110,13 @@ export default function DownloadReport({
   subjects      = [],
   attempts      = [],
 
+  // mode="profile"
+  student = {},
+
   // compact=true → icon-only, no label; fits in table rows / card rows
-  compact = false,
+  compact   = false,
+  fullWidth = false,
+  isMobile  = false,
 }) {
   const [loading, setLoading] = useState(false);
 
@@ -107,33 +126,33 @@ export default function DownloadReport({
     (mode === "dashboard" && attempts.length === 0);
 
   const handleDownload = async (e) => {
-    // Always stop propagation so clicking inside a <tr onClick> row
-    // doesn't also trigger row navigation
     e?.stopPropagation();
     if (disabled) return;
     setLoading(true);
 
     try {
-      let blob;
-      let filename;
-
       if (mode === "result") {
-        blob     = await fetchResultPDF(attemptId);
-        filename = `result_${safeFilename(studentName || "student")}.pdf`;
-      } else {
-        blob     = await fetchDashboardPDF({ user, computedStats, subjects, attempts });
-        filename = `${safeFilename(user?.full_name || "student")}_report.pdf`;
+        const blob     = await fetchResultPDF(attemptId);
+        const filename = `result_${safeFilename(studentName || "student")}.pdf`;
+        await downloadBlob(blob, filename);
+
+      } else if (mode === "dashboard") {
+        const blob     = await fetchDashboardPDF({ user, computedStats, subjects, attempts });
+        const filename = `${safeFilename(user?.full_name || "student")}_report.pdf`;
+        await downloadBlob(blob, filename);
+
+      } else if (mode === "profile") {
+        const { blob, filename } = await fetchProfileReport(student);
+        await downloadBlobDirect(blob, filename);
       }
 
-      await downloadBlob(blob, filename);
     } catch (err) {
-      console.error("PDF download error:", err);
+      console.error("Download error:", err);
       if (err.response) console.error("Server response:", err.response);
-
       alert(
         err?.response?.data?.detail ||
         err.message                 ||
-        "Failed to generate PDF."
+        "Failed to generate report."
       );
     } finally {
       setLoading(false);
@@ -176,7 +195,51 @@ export default function DownloadReport({
     );
   }
 
-  // ── Full (label) style — for header / results page ──
+  // ── Profile style — full-width amber button matching ProfilePage ──
+  if (mode === "profile") {
+    return (
+      <>
+        <style>{`@keyframes rp-spin { to { transform: rotate(360deg); } }`}</style>
+        <button
+          onClick={handleDownload}
+          disabled={loading}
+          title={title}
+          style={{
+            display:         "flex",
+            alignItems:      "center",
+            justifyContent:  "center",
+            gap:             7,
+            width:           "100%",
+            marginTop:       14,
+            padding:         isMobile ? "9px 14px" : "10px 16px",
+            background:      loading ? "var(--surface2)" : "var(--amber)",
+            border:          "none",
+            borderRadius:    "var(--radius)",
+            color:           loading ? "var(--muted)" : "#0C0E14",
+            cursor:          loading ? "not-allowed" : "pointer",
+            fontSize:        isMobile ? 12 : 13,
+            fontWeight:      600,
+            transition:      "background 0.2s, opacity 0.2s",
+            opacity:         loading ? 0.7 : 1,
+          }}
+        >
+          {loading ? (
+            <>
+              <Spinner size={13} />
+              Generating report…
+            </>
+          ) : (
+            <>
+              <DownloadIcon size={14} />
+              Download Detailed Report
+            </>
+          )}
+        </button>
+      </>
+    );
+  }
+
+  // ── Full (label) style — for dashboard / results page ──
   return (
     <button
       onClick={handleDownload}

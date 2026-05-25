@@ -392,7 +392,7 @@ export default function EditProfilePage({ student, setStudent, setPage }) {
           gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
           gap: isMobile ? 10 : 12,
         }}>
-          <Field label="Full Name" k="full_name" form={form} setForm={setForm} inputStyle={inputStyle} />
+          <Field label="Full Name" k="full_name" form={form} setForm={setForm} inputStyle={inputStyle} disabled/>
           <Field label="Email"     k="email"     form={form} setForm={setForm} inputStyle={inputStyle} disabled />
           <Field label="USN"       k="usn"       form={form} setForm={setForm} inputStyle={inputStyle} disabled />
 
@@ -405,12 +405,12 @@ export default function EditProfilePage({ student, setStudent, setPage }) {
               onChange={(v) => setForm((prev) => ({ ...prev, branch: v }))}
               options={branches}
               placeholder={branchesLoading ? "Loading..." : "Select branch"}
-              disabled={branchesLoading}
+              disabled
               searchable
             />
           </div>
 
-          <Field label="Section" k="section" form={form} setForm={setForm} inputStyle={inputStyle} />
+          <Field label="Section" k="section" form={form} setForm={setForm} inputStyle={inputStyle} disabled/>
 
           <div>
             <label style={{ display: "block", fontSize: 12, fontWeight: 500, color: "var(--muted)", marginBottom: 5 }}>
@@ -420,7 +420,7 @@ export default function EditProfilePage({ student, setStudent, setPage }) {
               value={form.semester ? `Semester ${form.semester}` : ""}
               onChange={(v) => setForm((prev) => ({ ...prev, semester: parseInt(v.split(" ")[1]) }))}
               options={SEMESTERS}
-              placeholder="Select semester"
+              placeholder="Select semester" disabled
             />
           </div>
         </div>

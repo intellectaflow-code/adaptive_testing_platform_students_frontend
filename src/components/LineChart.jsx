@@ -14,30 +14,58 @@ export default function LineChart({ data: rawData, attempts = [], h = 180, onTre
     return ["all", ...Array.from(seen)];
   }, [attempts]);
 
-  // ── Filter trend data by subject ──────────────────────────────────
-  const filteredData = useMemo(() => {
-    let source;
+// ── Filter trend data by subject ──────────────────────────────────
+const filteredData = useMemo(() => {
+  let source;
+  const oneMonthAgo = new Date();
+  oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
 
-    if (selectedSubject === "all") {
+  if (selectedSubject === "all") {
+    // rawData doesn't have dates, so filter from attempts and rebuild
+    const recentAttempts = attempts
+      .filter((a) => new Date(a.attempt_date) >= oneMonthAgo)
+      .sort((a, b) => new Date(a.attempt_date) - new Date(b.attempt_date));
+
+    if (rawData && rawData.length > 0 && recentAttempts.length === 0) {
+      // No recent attempts — fall back to rawData as-is (already aggregated)
       source = rawData;
     } else {
-      const subAttempts = attempts
-        .filter((a) => a.subject === selectedSubject)
-        .sort((a, b) => new Date(b.attempt_date) - new Date(a.attempt_date));
-
-      source = subAttempts.map((a) => ({
-        score: a.score ?? 0,
-        avg: a.score ?? 0,
-        month: new Date(a.attempt_date).toLocaleDateString("en-US", {
+      // Rebuild aggregated points from recent attempts only
+      const byMonth = {};
+      recentAttempts.forEach((a) => {
+        const label = new Date(a.attempt_date).toLocaleDateString("en-US", {
           month: "short",
           day: "numeric",
-        }),
-      }));
-    }
+        });
+        if (!byMonth[label]) byMonth[label] = { scores: [], label };
+        byMonth[label].scores.push(a.score ?? 0);
+      });
 
-    if (!source || source.length === 0) return [];
-    return [...source].reverse();
-  }, [rawData, attempts, selectedSubject]);
+      source = Object.values(byMonth).map(({ scores, label }) => {
+        const avg = scores.reduce((s, v) => s + v, 0) / scores.length;
+        return { score: avg, avg, month: label };
+      });
+    }
+  } else {
+    const subAttempts = attempts
+      .filter(
+        (a) => a.subject === selectedSubject && new Date(a.attempt_date) >= oneMonthAgo
+      )
+      .sort((a, b) => new Date(a.attempt_date) - new Date(b.attempt_date));
+
+    source = subAttempts.map((a) => ({
+      score: a.score ?? 0,
+      avg: a.score ?? 0,
+      month: new Date(a.attempt_date).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      }),
+    }));
+  }
+
+  if (!source || source.length === 0) return [];
+  return source; // already sorted ascending, no need to reverse
+}, [rawData, attempts, selectedSubject]);
 
   // ── Trend color ───────────────────────────────────────────────────
 const trendColor = useMemo(() => {

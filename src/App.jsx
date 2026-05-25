@@ -27,6 +27,47 @@ export default function App() {
   const [loggedIn, setLoggedIn] = useState(() => !!localStorage.getItem("access_token"));
 
   const [page, setPage] = useState("home");
+
+  const validPages = [
+    "home",
+    "profile",
+    "editprofile",
+    "dashboard",
+    "announcements",
+    "settings",
+    "assignments",
+    "assignment_results",
+    "quiz",
+    "assignment_quiz",
+  ];
+
+  // ── BROWSER NAVIGATION SUPPORT ──
+  useEffect(() => {
+    const path = window.location.pathname.replace("/", "");
+
+    if (validPages.includes(path)) {
+      setPage(path);
+    } else {
+      setPage("home");
+    }
+
+    const handlePopState = () => {
+      const currentPath = window.location.pathname.replace("/", "");
+
+      if (validPages.includes(currentPath)) {
+        setPage(currentPath);
+      } else {
+        setPage("home");
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
+
   const [quizConfig, setQuizConfig] = useState(null);
 
   const [results, setResults] = useState(null);
@@ -121,12 +162,20 @@ export default function App() {
     setStudent(null);
     setLoggedIn(false);
     setAuthPage("login");
-    setPage("home");
+    handleNavigate("home");
   };
 
   // Navigate and close mobile sidebar simultaneously
   const handleNavigate = useCallback((p) => {
+    if (!validPages.includes(p)) return;
+
     setPage(p);
+
+    // Update browser URL
+    const url = p === "home" ? "/" : `/${p}`;
+    window.history.pushState({ page: p }, "", url);
+
+    // Close mobile sidebar
     setSidebarOpen(false);
   }, []);
 
@@ -297,37 +346,37 @@ export default function App() {
 
               <main style={{ flex: 1, overflowY: "auto" }}>
                 {page === "home" && (
-                  <HomePage setPage={setPage} setQuizConfig={setQuizConfig} />
+                  <HomePage setPage={handleNavigate} setQuizConfig={setQuizConfig} />
                 )}
 
                 {page === "profile" && (
-                  <ProfilePage student={student} setPage={setPage} />
+                  <ProfilePage student={student} setPage={handleNavigate} />
                 )}
 
                 {page === "editprofile" && (
                   <EditProfilePage
                     student={student}
                     setStudent={setStudent}
-                    setPage={setPage}
+                    setPage={handleNavigate}
                   />
                 )}
 
                 {page === "dashboard" && (
                   <DashboardPage
-                    setPage={setPage}
+                    setPage={handleNavigate}
                     setAttemptResult={setAttemptResult}
                     user={student}
                   />
                 )}
 
                 {page === "results" && results && (
-                  <ResultsPage results={results} setPage={setPage} student={student} />
+                  <ResultsPage results={results} setPage={handleNavigate} student={student} />
                 )}
 
                 {page === "attempt-result" && attemptResult && (
                   <ResultsPage
                     results={attemptResult}
-                    setPage={setPage}
+                    setPage={handleNavigate}
                     fromDashboard
                     student={student}
                   />
@@ -346,13 +395,13 @@ export default function App() {
                   <SettingsPage
                     theme={theme}
                     setTheme={setTheme}
-                    setPage={setPage}
+                    setPage={handleNavigate}
                   />
                 )}
 
                 {page === "assignments" && (
                   <AssignmentsPage
-                    setPage={setPage}
+                    setPage={handleNavigate}
                     setQuizConfig={setQuizConfig}
                   />
                 )}
@@ -360,7 +409,7 @@ export default function App() {
                 {page === "assignment_results" && (
                   <AssignmentsResultsPage
                     config={quizConfig}
-                    setPage={setPage}
+                    setPage={handleNavigate}
                   />
                 )}
               </main>

@@ -450,7 +450,7 @@ export default function DashboardPage({ setPage, setAttemptResult, user }) {
                 <thead>
                   {/* ✅ Single header row with "Report" column — duplicate row removed */}
                   <tr>
-                    {["Test", "Type", "Date", "Score", "Time", "Report"].map((h) => (
+                    {["Test", "Type", "Date", "Score", "Time", "PDF"].map((h) => (
                       <th key={h} style={{ padding: "5px 9px", textAlign: "left", fontSize: 11, color: "var(--muted)", fontWeight: 500, borderBottom: "1px solid var(--border)", textTransform: "uppercase" }}>{h}</th>
                     ))}
                   </tr>

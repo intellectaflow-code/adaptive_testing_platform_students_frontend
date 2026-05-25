@@ -314,7 +314,7 @@ export default function LoginPage({ setAuthPage, onLogin }) {
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)", padding: 16 }}>
       <div style={{ width: "100%", maxWidth: 400 }}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--border)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px", color: "#0C0E14" }}>
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: "white", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px", color: "#0C0E14" }}>
             <img src={logo} alt="logo" style={{ width: 30, height: 30, objectFit: "contain" }} />
           </div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: "var(--white)", marginBottom: 4 }}>IntellectaFlow</h1>
